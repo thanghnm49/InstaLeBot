@@ -6,7 +6,16 @@ import logging
 import json
 from config import RAPIDAPI_BASE_URL, RAPIDAPI_HEADERS
 
+# Get logger for this module
 logger = logging.getLogger(__name__)
+
+# Ensure logger propagates to root logger (so it uses the handlers configured in bot.py)
+logger.propagate = True
+# Set level to ensure it logs
+logger.setLevel(logging.INFO)
+
+# Ensure logger propagates to root logger (so it uses the handlers configured in bot.py)
+logger.propagate = True
 
 
 class RapidAPIClient:
@@ -46,7 +55,21 @@ class RapidAPIClient:
         # Log API request with full URL and parameters
         params_str = json.dumps(params, ensure_ascii=False) if params else "{}"
         full_url = f"{url}?{params_str}" if params else url
-        logger.info(f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}")
+        
+        # Ensure logger is properly configured (set level if not already set)
+        if logger.level == 0:  # NOTSET
+            logger.setLevel(logging.INFO)
+        
+        # Log request - ensure it's written
+        request_log = f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}"
+        logger.info(request_log)
+        # Force flush to ensure it's written immediately
+        for handler in logger.handlers:
+            handler.flush()
+        # Also log to root logger as backup
+        root_logger = logging.getLogger()
+        if root_logger.handlers:
+            root_logger.info(f"[services.rapidapi] {request_log}")
         
         for attempt in range(retries):
             try:
@@ -59,9 +82,20 @@ class RapidAPIClient:
                     
                     # Log API response (truncate if too large)
                     response_str = json.dumps(response_data, ensure_ascii=False)
+                    response_size = len(json.dumps(response_data, ensure_ascii=False))
                     if len(response_str) > 1000:
                         response_str = response_str[:1000] + "... [truncated]"
-                    logger.info(f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {len(json.dumps(response_data))} bytes | Preview: {response_str[:200]}")
+                    
+                    # Log response - ensure it's written
+                    response_log = f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {response_size} bytes | Preview: {response_str[:200]}"
+                    logger.info(response_log)
+                    # Force flush to ensure it's written immediately
+                    for handler in logger.handlers:
+                        handler.flush()
+                    # Also log to root logger as backup
+                    root_logger = logging.getLogger()
+                    if root_logger.handlers:
+                        root_logger.info(f"[services.rapidapi] {response_log}")
                     
                     return response_data
                 except ValueError as json_error:
