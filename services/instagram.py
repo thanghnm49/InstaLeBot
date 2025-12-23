@@ -304,6 +304,7 @@ class InstagramService:
         """
         Get user profile information.
         Accepts either username or user ID.
+        Always converts username to user ID first using user_id_by_username API.
         
         Args:
             identifier: Instagram username (with or without @) or user ID
@@ -311,21 +312,21 @@ class InstagramService:
         Returns:
             User profile data
         """
-        # Check if identifier is numeric (likely user ID) or contains non-numeric chars (likely username)
         identifier_clean = identifier.lstrip('@').strip()
         
         # Try to determine if it's a user ID (numeric) or username
         is_numeric = identifier_clean.isdigit()
         
         if is_numeric:
-            # Assume it's a user ID, use directly
+            # It's a user ID, use directly with profile API
             user_id = identifier_clean
         else:
-            # Assume it's a username, convert to user ID first
+            # It's a username, convert to user ID first using user_id_by_username API
             user_id = self.get_user_id_by_username(identifier_clean)
             if not user_id:
                 raise ValueError(f"Could not find user ID for username: {identifier_clean}")
         
+        # Always use profile API with user_id (never use profile API with username directly)
         return self.client.get_user_info(user_id)
     
     def get_post_media(self, post_url: str) -> Dict[str, Any]:
