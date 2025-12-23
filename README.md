@@ -56,10 +56,10 @@ A Telegram bot that downloads Instagram videos/images, retrieves following/follo
 
 **Or use Docker Compose directly:**
 ```bash
-docker-compose up -d          # Start in background
-docker-compose logs -f       # View logs
-docker-compose down           # Stop
-docker-compose restart        # Restart
+docker compose up -d          # Start in background
+docker compose logs -f       # View logs
+docker compose down           # Stop
+docker compose restart        # Restart
 ```
 
 ### Local Development (Without Docker)
@@ -115,16 +115,16 @@ docker-compose restart        # Restart
 ### Docker Compose
 
 ```bash
-docker-compose up -d        # Start in background
-docker-compose down         # Stop
-docker-compose restart      # Restart
-docker-compose logs -f      # View logs
-docker-compose ps           # Check status
+docker compose up -d        # Start in background
+docker compose down         # Stop
+docker compose restart      # Restart
+docker compose logs -f      # View logs
+docker compose ps           # Check status
 ```
 
 ## Logs
 
-- **Docker logs**: `./docker-run.sh logs` or `docker-compose logs -f`
+- **Docker logs**: `./docker-run.sh logs` or `docker compose logs -f`
 - **Application logs**: `logs/bot.log` and `logs/bot-error.log`
 
 ## Documentation

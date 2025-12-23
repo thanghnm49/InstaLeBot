@@ -21,7 +21,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+if ! docker compose version &> /dev/null; then
     echo -e "${RED}❌ Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
 fi
@@ -56,7 +56,7 @@ is_running() {
 case "${1:-}" in
     build)
         echo -e "${GREEN}🔨 Building Docker image...${NC}"
-        docker-compose build
+        docker compose build
         echo -e "${GREEN}✅ Build complete!${NC}"
         ;;
     start)
@@ -64,7 +64,7 @@ case "${1:-}" in
             echo -e "${YELLOW}⚠️  Container is already running${NC}"
         else
             echo -e "${GREEN}🚀 Starting container...${NC}"
-            docker-compose up -d
+            docker compose up -d
             echo -e "${GREEN}✅ Container started!${NC}"
             echo ""
             echo "View logs with: ./docker-run.sh logs"
@@ -73,7 +73,7 @@ case "${1:-}" in
     stop)
         if is_running; then
             echo -e "${YELLOW}🛑 Stopping container...${NC}"
-            docker-compose down
+            docker compose down
             echo -e "${GREEN}✅ Container stopped!${NC}"
         else
             echo -e "${YELLOW}⚠️  Container is not running${NC}"
@@ -81,28 +81,28 @@ case "${1:-}" in
         ;;
     restart)
         echo -e "${YELLOW}🔄 Restarting container...${NC}"
-        docker-compose restart
+        docker compose restart
         echo -e "${GREEN}✅ Container restarted!${NC}"
         ;;
     logs)
         echo -e "${GREEN}📋 Showing logs (Ctrl+C to exit)...${NC}"
-        docker-compose logs -f
+        docker compose logs -f
         ;;
     status)
         if is_running; then
             echo -e "${GREEN}✅ Container is running${NC}"
-            docker-compose ps
+            docker compose ps
         else
             echo -e "${RED}❌ Container is not running${NC}"
         fi
         ;;
     shell)
         echo -e "${GREEN}🐚 Opening shell in container...${NC}"
-        docker-compose exec instalebot /bin/bash || docker-compose exec instalebot /bin/sh
+        docker compose exec instalebot /bin/bash || docker compose exec instalebot /bin/sh
         ;;
     clean)
         echo -e "${YELLOW}🧹 Cleaning up...${NC}"
-        docker-compose down -v
+        docker compose down -v
         docker rmi instalebot-instalebot 2>/dev/null || true
         echo -e "${GREEN}✅ Cleanup complete!${NC}"
         ;;

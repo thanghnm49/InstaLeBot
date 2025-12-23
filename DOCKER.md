@@ -5,7 +5,7 @@ This guide covers deploying InstaLeBot using Docker and Docker Compose.
 ## Prerequisites
 
 - Docker Engine 20.10 or higher
-- Docker Compose 2.0 or higher (or docker-compose 1.29+)
+- Docker Compose V2 (included with Docker Desktop or Docker Engine)
 - At least 512MB RAM available
 - Internet connection
 
@@ -24,7 +24,7 @@ newgrp docker
 **Or use package manager:**
 ```bash
 sudo apt update
-sudo apt install docker.io docker-compose
+sudo apt install docker.io docker-compose-plugin
 sudo systemctl enable docker
 sudo systemctl start docker
 ```
@@ -80,34 +80,34 @@ sudo systemctl start docker
 
 ```bash
 # Build image
-docker-compose build
+docker compose build
 
 # Start in background
-docker-compose up -d
+docker compose up -d
 
 # Start in foreground (see logs)
-docker-compose up
+docker compose up
 
 # Stop container
-docker-compose down
+docker compose down
 
 # Restart container
-docker-compose restart
+docker compose restart
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # View logs (last 100 lines)
-docker-compose logs --tail=100
+docker compose logs --tail=100
 
 # Check status
-docker-compose ps
+docker compose ps
 
 # Execute command in container
-docker-compose exec instalebot python3 bot.py
+docker compose exec instalebot python3 bot.py
 
 # Open shell
-docker-compose exec instalebot /bin/bash
+docker compose exec instalebot /bin/bash
 ```
 
 ### Using Docker directly:
@@ -173,10 +173,10 @@ Currently, the bot uses polling, so no ports need to be exposed. If you switch t
    ./docker-run.sh restart
    ```
 
-Or with docker-compose:
+Or with docker compose:
 ```bash
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
 ## Troubleshooting
@@ -185,12 +185,12 @@ docker-compose up -d
 
 1. **Check logs:**
    ```bash
-   docker-compose logs
+   docker compose logs
    ```
 
 2. **Check environment variables:**
    ```bash
-   docker-compose exec instalebot env | grep -E "TELEGRAM|RAPIDAPI"
+   docker compose exec instalebot env | grep -E "TELEGRAM|RAPIDAPI"
    ```
 
 3. **Verify .env file:**
@@ -202,12 +202,12 @@ docker-compose up -d
 
 1. **Check logs for errors:**
    ```bash
-   docker-compose logs --tail=50
+   docker compose logs --tail=50
    ```
 
 2. **Check container status:**
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
 
 3. **Inspect container:**
@@ -250,12 +250,12 @@ If the bot can't connect to APIs:
 
 1. **Test network connectivity:**
    ```bash
-   docker-compose exec instalebot ping -c 3 api.telegram.org
+   docker compose exec instalebot ping -c 3 api.telegram.org
    ```
 
 2. **Check DNS:**
    ```bash
-   docker-compose exec instalebot nslookup api.telegram.org
+   docker compose exec instalebot nslookup api.telegram.org
    ```
 
 ## Production Deployment
