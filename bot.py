@@ -15,9 +15,21 @@ from handlers.reels import reels_command
 from handlers.menu import start_command, menu_command, menu_callback
 
 # Configure logging
+# Create logs directory if it doesn't exist
+import os
+from pathlib import Path
+
+logs_dir = Path(__file__).parent / "logs"
+logs_dir.mkdir(exist_ok=True)
+
+# Configure logging with both file and console handlers
 logging.basicConfig(
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    handlers=[
+        logging.FileHandler(logs_dir / 'bot.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 

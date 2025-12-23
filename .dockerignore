@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+dist
+build
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+*.md
+!README.md
+
+# Deployment scripts (not needed in container)
+deploy.sh
+start.sh
+stop.sh
+install-service.sh
+instalebot.service
+DEPLOYMENT.md
+
+# Downloads (will be mounted as volume)
+downloads/*
+!downloads/.gitkeep
+
+# Logs (will be mounted as volume)
+logs/*
+!logs/.gitkeep
+
+# Environment (will be mounted or passed as env vars)
+.env
+.env.example
+
+# Test files
+tests/
+test_*.py
+*_test.py
+

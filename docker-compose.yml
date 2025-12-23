@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  instalebot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: instalebot
+    restart: unless-stopped
+    env_file:
+      # Load environment variables from .env file
+      - .env
+    volumes:
+      # Persist downloads
+      - ./downloads:/app/downloads
+      # Persist logs
+      - ./logs:/app/logs
+    networks:
+      - instalebot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  instalebot-network:
+    driver: bridge

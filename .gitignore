@@ -36,6 +36,18 @@ downloads/
 *.png
 *.webp
 
+# Logs
+logs/
+*.log
+
+# Docker
+.docker/
+
+# Virtual environment
+venv/
+ENV/
+env/
+
 # IDE
 .vscode/
 .idea/
