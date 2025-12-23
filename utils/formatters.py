@@ -8,6 +8,7 @@ def escape_html(text: str) -> str:
     Escape special characters for HTML.
     Must escape & first to avoid double-escaping.
     Uses a simple, reliable approach that handles all edge cases.
+    Handles Unicode and encoding issues properly.
     
     Args:
         text: Text to escape
@@ -18,21 +19,37 @@ def escape_html(text: str) -> str:
     if not text:
         return ""
     
-    # Convert to string and handle None
-    text = str(text)
-    
-    # Escape in correct order: & first, then others
-    # This ensures &amp; doesn't get double-escaped
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    
-    # Remove any control characters that might cause issues
-    # Keep only printable characters and common whitespace
-    text = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
-    
-    return text
+    try:
+        # Convert to string and handle None
+        # Ensure we're working with Unicode
+        if isinstance(text, bytes):
+            text = text.decode('utf-8', errors='replace')
+        else:
+            text = str(text)
+        
+        # Normalize Unicode (handle combining characters, etc.)
+        try:
+            import unicodedata
+            text = unicodedata.normalize('NFKC', text)
+        except ImportError:
+            pass  # unicodedata is part of standard library, but just in case
+        
+        # Escape in correct order: & first, then others
+        # This ensures &amp; doesn't get double-escaped
+        text = text.replace('&', '&amp;')
+        text = text.replace('<', '&lt;')
+        text = text.replace('>', '&gt;')
+        text = text.replace('"', '&quot;')
+        
+        # Remove any control characters that might cause issues
+        # Keep only printable characters and common whitespace
+        # But preserve Unicode characters (emojis, etc.)
+        text = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
+        
+        return text
+    except Exception as e:
+        # If anything goes wrong, return a safe fallback
+        return str(text).encode('ascii', errors='replace').decode('ascii')
 
 
 def format_user_list(users: List[Dict[str, Any]], title: str = "Users") -> str:
