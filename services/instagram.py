@@ -264,6 +264,42 @@ class InstagramService:
         
         return None
     
+    def get_username_by_user_id(self, user_id: str) -> Optional[str]:
+        """
+        Get username by user ID.
+        
+        Args:
+            user_id: Instagram user ID
+            
+        Returns:
+            Username if found, None otherwise
+        """
+        try:
+            response = self.client.get_username_by_user_id(user_id)
+            
+            # Extract username from response (structure may vary)
+            if isinstance(response, dict):
+                # Try common response structures
+                username = response.get("username") or response.get("user_name")
+                if username:
+                    return str(username)
+                # Check in data field
+                if "data" in response:
+                    data = response["data"]
+                    if isinstance(data, dict):
+                        username = data.get("username") or data.get("user_name")
+                        if username:
+                            return str(username)
+                    elif isinstance(data, str):
+                        # If data is directly the username
+                        return data
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting username by user ID: {str(e)}")
+        
+        return None
+    
     def get_user_info(self, identifier: str) -> Dict[str, Any]:
         """
         Get user profile information.
