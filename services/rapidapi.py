@@ -6,25 +6,13 @@ import logging
 import json
 from config import RAPIDAPI_BASE_URL, RAPIDAPI_HEADERS
 
-# Get logger for this module
-logger = logging.getLogger(__name__)
+# Get logger for this module - use a simple name that will be visible
+logger = logging.getLogger("rapidapi")
 
 # Ensure logger propagates to root logger (so it uses the handlers configured in bot.py)
 logger.propagate = True
 # Set level to ensure it logs
 logger.setLevel(logging.INFO)
-
-
-def _ensure_logger_configured():
-    """Ensure logger has handlers by checking root logger."""
-    root_logger = logging.getLogger()
-    if root_logger.handlers and not logger.handlers:
-        # Root logger has handlers, ensure our logger uses them via propagation
-        logger.propagate = True
-        logger.setLevel(logging.INFO)
-    
-    # Always log to root logger as well to ensure it's captured
-    return root_logger
 
 
 class RapidAPIClient:
@@ -69,24 +57,22 @@ class RapidAPIClient:
         if logger.level == 0:  # NOTSET
             logger.setLevel(logging.INFO)
         
-        # Ensure logger is configured and get root logger
-        root_logger = _ensure_logger_configured()
-        
-        # Log request - ensure it's written
+        # Log request - use both root logger and module logger
         request_log = f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}"
         
-        # Log to root logger directly (most reliable way)
-        if root_logger.handlers:
-            root_logger.info(f"[RapidAPI] {request_log}")
-        # Also log to module logger (for propagation)
+        # Log using module logger (will propagate to root if configured)
         logger.info(request_log)
         
+        # Also log directly to root logger as backup
+        root_logger = logging.getLogger()
+        root_logger.info(f"rapidapi - INFO - {request_log}")
+        
         # Force flush all handlers to ensure immediate write
-        for handler in root_logger.handlers:
-            try:
+        try:
+            for handler in root_logger.handlers:
                 handler.flush()
-            except:
-                pass
+        except:
+            pass
         
         for attempt in range(retries):
             try:
@@ -103,24 +89,22 @@ class RapidAPIClient:
                     if len(response_str) > 1000:
                         response_str = response_str[:1000] + "... [truncated]"
                     
-                    # Ensure logger is configured and get root logger
-                    root_logger = _ensure_logger_configured()
-                    
-                    # Log response - ensure it's written
+                    # Log response - use both root logger and module logger
                     response_log = f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {response_size} bytes | Preview: {response_str[:200]}"
                     
-                    # Log to root logger directly (most reliable way)
-                    if root_logger.handlers:
-                        root_logger.info(f"[RapidAPI] {response_log}")
-                    # Also log to module logger (for propagation)
+                    # Log using module logger (will propagate to root if configured)
                     logger.info(response_log)
                     
+                    # Also log directly to root logger as backup
+                    root_logger = logging.getLogger()
+                    root_logger.info(f"rapidapi - INFO - {response_log}")
+                    
                     # Force flush all handlers to ensure immediate write
-                    for handler in root_logger.handlers:
-                        try:
+                    try:
+                        for handler in root_logger.handlers:
                             handler.flush()
-                        except:
-                            pass
+                    except:
+                        pass
                     
                     return response_data
                 except ValueError as json_error:
