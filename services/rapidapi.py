@@ -2,7 +2,11 @@
 import requests
 from typing import Dict, Any, Optional
 import time
+import logging
+import json
 from config import RAPIDAPI_BASE_URL, RAPIDAPI_HEADERS
+
+logger = logging.getLogger(__name__)
 
 
 class RapidAPIClient:
@@ -39,6 +43,10 @@ class RapidAPIClient:
         """
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
+        # Log API request
+        params_str = json.dumps(params, ensure_ascii=False) if params else "{}"
+        logger.info(f"API Request: GET {endpoint} | Params: {params_str}")
+        
         for attempt in range(retries):
             try:
                 response = self.session.get(url, params=params, timeout=30)
@@ -46,8 +54,17 @@ class RapidAPIClient:
                 
                 # Try to parse JSON
                 try:
-                    return response.json()
+                    response_data = response.json()
+                    
+                    # Log API response (truncate if too large)
+                    response_str = json.dumps(response_data, ensure_ascii=False)
+                    if len(response_str) > 1000:
+                        response_str = response_str[:1000] + "... [truncated]"
+                    logger.info(f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {len(json.dumps(response_data))} bytes | Preview: {response_str[:200]}")
+                    
+                    return response_data
                 except ValueError as json_error:
+                    logger.error(f"API Response Error: GET {endpoint} | Invalid JSON: {str(json_error)}")
                     raise ValueError(f"Invalid JSON response from {endpoint}: {str(json_error)}")
                     
             except requests.exceptions.HTTPError as e:

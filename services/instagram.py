@@ -2,6 +2,9 @@
 from typing import Dict, Any, List, Optional
 from services.rapidapi import RapidAPIClient
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class InstagramService:
@@ -73,7 +76,10 @@ class InstagramService:
         current_max_id = next_max_id
         max_pages = 50  # Safety limit to prevent infinite loops
         
+        logger.info(f"Starting post feed pagination for user_id={user_id}, initial_next_max_id={next_max_id}, max_items={max_items}")
+        
         for page in range(max_pages):
+            logger.info(f"Post feed pagination - Page {page + 1}/{max_pages} | Current next_max_id: {current_max_id} | Total posts so far: {len(all_posts)}")
             feed_data = self.client.get_feed(user_id, current_max_id)
             
             # Extract posts from feed
@@ -178,8 +184,10 @@ class InstagramService:
                 
                 # If we found duplicates and no new posts, stop pagination
                 if duplicate_found and not new_posts:
+                    logger.info(f"Post feed pagination - Page {page + 1}: Found duplicates, no new posts. Stopping pagination.")
                     break
                 
+                logger.info(f"Post feed pagination - Page {page + 1}: Found {len(posts)} posts, {len(new_posts)} new posts (after duplicate check), Total: {len(all_posts) + len(new_posts)}")
                 all_posts.extend(new_posts)
             
             # Check if we have enough items
@@ -212,11 +220,14 @@ class InstagramService:
             
             # Stop pagination if no next_max_id found (no more pages)
             if not next_max_id:
+                logger.info(f"Post feed pagination - Page {page + 1}: No next_max_id found. Stopping pagination. Total posts collected: {len(all_posts)}")
                 break
             
+            logger.info(f"Post feed pagination - Page {page + 1}: Found next_max_id={next_max_id}. Continuing to next page.")
             # Use the next_max_id from response for next request
             current_max_id = next_max_id
         
+        logger.info(f"Post feed pagination completed. Total posts: {len(all_posts)}, Final next_max_id: {current_max_id}")
         return all_posts, current_max_id
     
     def get_following_list(self, user_id: str) -> List[Dict[str, Any]]:
@@ -229,19 +240,23 @@ class InstagramService:
         Returns:
             List of users being followed
         """
+        logger.info(f"Getting following list for user_id={user_id}")
         response = self.client.get_following(user_id)
         # Extract list from response (structure may vary)
+        result = []
         if isinstance(response, list):
-            return response
+            result = response
         elif isinstance(response, dict):
             # Common response structures
             if "data" in response:
-                return response["data"]
+                result = response["data"]
             elif "following" in response:
-                return response["following"]
+                result = response["following"]
             elif "users" in response:
-                return response["users"]
-        return []
+                result = response["users"]
+        
+        logger.info(f"Successfully retrieved {len(result)} following users for user_id={user_id}")
+        return result
     
     def get_followers_list(self, user_id: str) -> List[Dict[str, Any]]:
         """
@@ -253,19 +268,23 @@ class InstagramService:
         Returns:
             List of followers
         """
+        logger.info(f"Getting followers list for user_id={user_id}")
         response = self.client.get_followers(user_id)
         # Extract list from response (structure may vary)
+        result = []
         if isinstance(response, list):
-            return response
+            result = response
         elif isinstance(response, dict):
             # Common response structures
             if "data" in response:
-                return response["data"]
+                result = response["data"]
             elif "followers" in response:
-                return response["followers"]
+                result = response["followers"]
             elif "users" in response:
-                return response["users"]
-        return []
+                result = response["users"]
+        
+        logger.info(f"Successfully retrieved {len(result)} followers for user_id={user_id}")
+        return result
     
     def get_user_id_by_username(self, username: str) -> Optional[str]:
         """
@@ -358,29 +377,41 @@ class InstagramService:
             User profile data
         """
         identifier_clean = identifier.lstrip('@').strip()
+        logger.info(f"Getting user info for identifier={identifier_clean}")
         
         # Determine if it's a user ID (numeric) or username
         is_numeric = identifier_clean.isdigit()
         
         if is_numeric:
             # It's a user ID (numeric)
+            logger.info(f"Identifier is numeric (user ID). Converting: user_id={identifier_clean} → username → user_id")
             # Step 1: Get username from user ID using username_by_id API
             username = self.get_username_by_user_id(identifier_clean)
             if not username:
+                logger.error(f"Could not find username for user ID: {identifier_clean}")
                 raise ValueError(f"Could not find username for user ID: {identifier_clean}")
             
+            logger.info(f"Got username={username} from user_id={identifier_clean}")
             # Step 2: Get user ID from username using user_id_by_username API
             user_id = self.get_user_id_by_username(username)
             if not user_id:
+                logger.error(f"Could not find user ID for username: {username}")
                 raise ValueError(f"Could not find user ID for username: {username}")
+            
+            logger.info(f"Got user_id={user_id} from username={username}")
         else:
             # It's a username (not numeric)
+            logger.info(f"Identifier is username. Converting: username={identifier_clean} → user_id")
             # Get user ID from username using user_id_by_username API
             user_id = self.get_user_id_by_username(identifier_clean)
             if not user_id:
+                logger.error(f"Could not find user ID for username: {identifier_clean}")
                 raise ValueError(f"Could not find user ID for username: {identifier_clean}")
+            
+            logger.info(f"Got user_id={user_id} from username={identifier_clean}")
         
         # Always use profile API with user_id (never use profile API with username directly)
+        logger.info(f"Fetching profile info for user_id={user_id}")
         return self.client.get_user_info(user_id)
     
     def get_post_media(self, post_url: str) -> Dict[str, Any]:
@@ -407,21 +438,24 @@ class InstagramService:
         """
         response = self.client.get_discover_chaining(user_id)
         # Extract list from response (structure may vary)
+        result = []
         if isinstance(response, list):
-            return response
+            result = response
         elif isinstance(response, dict):
             # Common response structures
             if "data" in response:
-                return response["data"]
+                result = response["data"]
             elif "users" in response:
-                return response["users"]
+                result = response["users"]
             elif "recommendations" in response:
-                return response["recommendations"]
+                result = response["recommendations"]
             elif "similar_accounts" in response:
-                return response["similar_accounts"]
+                result = response["similar_accounts"]
             elif "chaining" in response:
-                return response["chaining"]
-        return []
+                result = response["chaining"]
+        
+        logger.info(f"Successfully retrieved {len(result)} similar accounts for user_id={user_id}")
+        return result
     
     def extract_image_url(self, media_item: Dict[str, Any]) -> Optional[str]:
         """
@@ -620,7 +654,10 @@ class InstagramService:
         current_max_id = next_max_id
         max_pages = 50  # Safety limit to prevent infinite loops
         
+        logger.info(f"Starting video feed pagination for user_id={user_id}, initial_next_max_id={next_max_id}, max_items={max_items}")
+        
         for page in range(max_pages):
+            logger.info(f"Video feed pagination - Page {page + 1}/{max_pages} | Current next_max_id: {current_max_id} | Total videos so far: {len(all_videos)}")
             response = self.client.get_all_video(user_id, current_max_id)
             
             # Extract list from response (structure may vary)
@@ -722,8 +759,10 @@ class InstagramService:
                 
                 # If we found duplicates and no new videos, stop pagination
                 if duplicate_found and not new_videos:
+                    logger.info(f"Video feed pagination - Page {page + 1}: Found duplicates, no new videos. Stopping pagination.")
                     break
                 
+                logger.info(f"Video feed pagination - Page {page + 1}: Found {len(videos)} videos, {len(new_videos)} new videos (after duplicate check), Total: {len(all_videos) + len(new_videos)}")
                 all_videos.extend(new_videos)
             
             # Check if we have enough items
@@ -756,11 +795,14 @@ class InstagramService:
             
             # Stop pagination if no next_max_id found (no more pages)
             if not next_max_id:
+                logger.info(f"Video feed pagination - Page {page + 1}: No next_max_id found. Stopping pagination. Total videos collected: {len(all_videos)}")
                 break
             
+            logger.info(f"Video feed pagination - Page {page + 1}: Found next_max_id={next_max_id}. Continuing to next page.")
             # Use the next_max_id from response for next request
             current_max_id = next_max_id
         
+        logger.info(f"Video feed pagination completed. Total videos: {len(all_videos)}, Final next_max_id: {current_max_id}")
         return all_videos, current_max_id
     
     def get_user_reels(self, user_id: str, include_feed_video: bool = True) -> List[Dict[str, Any]]:
@@ -774,13 +816,15 @@ class InstagramService:
         Returns:
             List of reel posts
         """
+        logger.info(f"Getting user reels for user_id={user_id}, include_feed_video={include_feed_video}")
         try:
             response = self.client.get_reels(user_id, include_feed_video)
             
             # Extract list from response (structure may vary)
+            result = []
             if isinstance(response, list):
                 # Ensure all items are dicts
-                return [item for item in response if isinstance(item, dict)]
+                result = [item for item in response if isinstance(item, dict)]
             elif isinstance(response, dict):
                 # Check for nested data.items structure first (most common)
                 if "data" in response and isinstance(response["data"], dict):
@@ -788,7 +832,6 @@ class InstagramService:
                     if "items" in data and isinstance(data["items"], list):
                         items = data["items"]
                         # Extract media from items if they have a 'media' key
-                        result = []
                         for item in items:
                             if isinstance(item, dict):
                                 # If item has 'media' key, use that, otherwise use item directly
@@ -796,31 +839,31 @@ class InstagramService:
                                     result.append(item["media"])
                                 else:
                                     result.append(item)
-                        return result
                     elif isinstance(data, list):
-                        return [item for item in data if isinstance(item, dict)]
+                        result = [item for item in data if isinstance(item, dict)]
                 # Check for direct data as list
                 elif "data" in response and isinstance(response["data"], list):
                     data = response["data"]
-                    return [item for item in data if isinstance(item, dict)]
+                    result = [item for item in data if isinstance(item, dict)]
                 # Other common structures
                 elif "reels" in response:
                     reels = response["reels"]
                     if isinstance(reels, list):
-                        return [item for item in reels if isinstance(item, dict)]
+                        result = [item for item in reels if isinstance(item, dict)]
                 elif "items" in response:
                     items = response["items"]
                     if isinstance(items, list):
-                        return [item for item in items if isinstance(item, dict)]
+                        result = [item for item in items if isinstance(item, dict)]
                 elif "videos" in response:
                     videos = response["videos"]
                     if isinstance(videos, list):
-                        return [item for item in videos if isinstance(item, dict)]
+                        result = [item for item in videos if isinstance(item, dict)]
+            
+            logger.info(f"Successfully retrieved {len(result)} reels for user_id={user_id}")
+            return result
         except Exception as e:
             # Log error but return empty list
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error getting user reels: {str(e)}")
+            logger.error(f"Error getting user reels for user_id={user_id}: {str(e)}", exc_info=True)
         
         return []
 
