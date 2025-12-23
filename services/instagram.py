@@ -150,29 +150,42 @@ class InstagramService:
                 all_posts = all_posts[:max_items]
                 break
             
-            # Check for next page - look in multiple possible locations
+            # Extract next_max_id from response - check all possible locations
             next_max_id = None
             if isinstance(feed_data, dict):
-                # Check top level
+                # Check top level first
                 next_max_id = feed_data.get("next_max_id")
-                # Check in data.paging_info
+                
+                # Check in data.paging_info (common location)
                 if not next_max_id and "data" in feed_data and isinstance(feed_data["data"], dict):
-                    paging_info = feed_data["data"].get("paging_info", {})
-                    next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
-                # Check in pagination
+                    data = feed_data["data"]
+                    paging_info = data.get("paging_info", {})
+                    if isinstance(paging_info, dict):
+                        next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
+                    
+                    # Also check if next_max_id is directly in data
+                    if not next_max_id:
+                        next_max_id = data.get("next_max_id") or data.get("max_id")
+                
+                # Check in pagination object
                 if not next_max_id:
                     pagination = feed_data.get("pagination", {})
-                    next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor")
-                # Check for more_available flag
+                    if isinstance(pagination, dict):
+                        next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor") or pagination.get("max_id")
+                
+                # Check for more_available flag to determine if we should continue
                 if "data" in feed_data and isinstance(feed_data["data"], dict):
                     paging_info = feed_data["data"].get("paging_info", {})
-                    more_available = paging_info.get("more_available", True)
-                    if not more_available and not next_max_id:
-                        break
+                    if isinstance(paging_info, dict):
+                        more_available = paging_info.get("more_available", True)
+                        if not more_available and not next_max_id:
+                            break  # No more pages available
             
+            # If no next_max_id found, stop pagination
             if not next_max_id:
                 break  # No more pages
             
+            # Use the next_max_id from response for next request
             current_max_id = next_max_id
         
         return all_posts, current_max_id
@@ -652,29 +665,42 @@ class InstagramService:
                 all_videos = all_videos[:max_items]
                 break
             
-            # Check for next page - look in multiple possible locations
+            # Extract next_max_id from response - check all possible locations
             next_max_id = None
             if isinstance(response, dict):
-                # Check top level
+                # Check top level first
                 next_max_id = response.get("next_max_id")
-                # Check in data.paging_info
+                
+                # Check in data.paging_info (common location)
                 if not next_max_id and "data" in response and isinstance(response["data"], dict):
-                    paging_info = response["data"].get("paging_info", {})
-                    next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
-                # Check in pagination
+                    data = response["data"]
+                    paging_info = data.get("paging_info", {})
+                    if isinstance(paging_info, dict):
+                        next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
+                    
+                    # Also check if next_max_id is directly in data
+                    if not next_max_id:
+                        next_max_id = data.get("next_max_id") or data.get("max_id")
+                
+                # Check in pagination object
                 if not next_max_id:
                     pagination = response.get("pagination", {})
-                    next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor")
-                # Check for more_available flag
+                    if isinstance(pagination, dict):
+                        next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor") or pagination.get("max_id")
+                
+                # Check for more_available flag to determine if we should continue
                 if "data" in response and isinstance(response["data"], dict):
                     paging_info = response["data"].get("paging_info", {})
-                    more_available = paging_info.get("more_available", True)
-                    if not more_available and not next_max_id:
-                        break
+                    if isinstance(paging_info, dict):
+                        more_available = paging_info.get("more_available", True)
+                        if not more_available and not next_max_id:
+                            break  # No more pages available
             
+            # If no next_max_id found, stop pagination
             if not next_max_id:
                 break  # No more pages
             
+            # Use the next_max_id from response for next request
             current_max_id = next_max_id
         
         return all_videos, current_max_id
