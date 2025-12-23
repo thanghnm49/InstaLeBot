@@ -7,21 +7,31 @@ def escape_html(text: str) -> str:
     """
     Escape special characters for HTML.
     Must escape & first to avoid double-escaping.
+    Uses a simple, reliable approach that handles all edge cases.
     
     Args:
         text: Text to escape
         
     Returns:
-        Escaped text
+        Escaped text safe for HTML
     """
     if not text:
         return ""
+    
+    # Convert to string and handle None
     text = str(text)
+    
     # Escape in correct order: & first, then others
+    # This ensures &amp; doesn't get double-escaped
     text = text.replace('&', '&amp;')
     text = text.replace('<', '&lt;')
     text = text.replace('>', '&gt;')
     text = text.replace('"', '&quot;')
+    
+    # Remove any control characters that might cause issues
+    # Keep only printable characters and common whitespace
+    text = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
+    
     return text
 
 

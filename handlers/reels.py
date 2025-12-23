@@ -138,63 +138,39 @@ async def reels_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption = reel.get("caption", reel.get("text", ""))
                 if caption:
                     # Clean and truncate caption (limit to 900 chars for safety)
+                    # Use plain text to avoid HTML parsing issues
                     caption_clean = clean_caption(caption, max_length=900)
-                    escaped_title = escape_html(caption_clean)
                 else:
-                    escaped_title = f"Reel {i}"
+                    caption_clean = f"Reel {i}"
                 
-                # Send image with caption
+                # Send image with caption (always use plain text for user content)
                 if image_url:
                     try:
-                        # Try with HTML first
                         await update.message.reply_photo(
                             photo=image_url,
-                            caption=escaped_title,
-                            parse_mode=ParseMode.HTML
+                            caption=caption_clean,
+                            parse_mode=None  # Plain text to avoid parsing errors
                         )
                         sent_count += 1
-                    except BadRequest as parse_error:
-                        # If HTML parsing fails, try plain text
-                        logger.warning(f"HTML parse error for reel {i}, trying plain text: {str(parse_error)}")
+                    except Exception as e:
+                        logger.warning(f"Failed to send reel thumbnail {i}: {str(e)}")
+                        # Fallback: send text only
                         try:
-                            # Use plain text caption (no HTML)
-                            plain_caption = clean_caption(caption, max_length=900) if caption else f"Reel {i}"
-                            await update.message.reply_photo(
-                                photo=image_url,
-                                caption=plain_caption,
+                            await update.message.reply_text(
+                                f"🎬 {caption_clean}",
                                 parse_mode=None
                             )
                             sent_count += 1
-                        except Exception as e:
-                            logger.warning(f"Failed to send reel thumbnail {i}: {str(e)}")
-                            # Final fallback: send text only
-                            try:
-                                plain_caption = clean_caption(caption, max_length=900) if caption else f"Reel {i}"
-                                await update.message.reply_text(
-                                    f"🎬 {plain_caption}",
-                                    parse_mode=None
-                                )
-                                sent_count += 1
-                            except Exception as final_error:
-                                logger.error(f"Failed to send reel {i} even as text: {str(final_error)}")
-                                continue
+                        except Exception as final_error:
+                            logger.error(f"Failed to send reel {i} even as text: {str(final_error)}")
+                            continue
                 else:
                     # No thumbnail, send text only
-                    try:
-                        await update.message.reply_text(
-                            f"🎬 {escaped_title}",
-                            parse_mode=ParseMode.HTML
-                        )
-                        sent_count += 1
-                    except BadRequest as e:
-                        # Fallback to plain text
-                        logger.warning(f"HTML parse error for text-only reel {i}, using plain text: {str(e)}")
-                        plain_caption = clean_caption(caption, max_length=900) if caption else f"Reel {i}"
-                        await update.message.reply_text(
-                            f"🎬 {plain_caption}",
-                            parse_mode=None
-                        )
-                        sent_count += 1
+                    await update.message.reply_text(
+                        f"🎬 {caption_clean}",
+                        parse_mode=None
+                    )
+                    sent_count += 1
                 
             except Exception as e:
                 logger.error(f"Error processing reel {i}: {str(e)}")
