@@ -14,8 +14,17 @@ logger.propagate = True
 # Set level to ensure it logs
 logger.setLevel(logging.INFO)
 
-# Ensure logger propagates to root logger (so it uses the handlers configured in bot.py)
-logger.propagate = True
+
+def _ensure_logger_configured():
+    """Ensure logger has handlers by checking root logger."""
+    root_logger = logging.getLogger()
+    if root_logger.handlers and not logger.handlers:
+        # Root logger has handlers, ensure our logger uses them via propagation
+        logger.propagate = True
+        logger.setLevel(logging.INFO)
+    
+    # Always log to root logger as well to ensure it's captured
+    return root_logger
 
 
 class RapidAPIClient:
@@ -60,16 +69,24 @@ class RapidAPIClient:
         if logger.level == 0:  # NOTSET
             logger.setLevel(logging.INFO)
         
+        # Ensure logger is configured and get root logger
+        root_logger = _ensure_logger_configured()
+        
         # Log request - ensure it's written
         request_log = f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}"
-        logger.info(request_log)
-        # Force flush to ensure it's written immediately
-        for handler in logger.handlers:
-            handler.flush()
-        # Also log to root logger as backup
-        root_logger = logging.getLogger()
+        
+        # Log to root logger directly (most reliable way)
         if root_logger.handlers:
-            root_logger.info(f"[services.rapidapi] {request_log}")
+            root_logger.info(f"[RapidAPI] {request_log}")
+        # Also log to module logger (for propagation)
+        logger.info(request_log)
+        
+        # Force flush all handlers to ensure immediate write
+        for handler in root_logger.handlers:
+            try:
+                handler.flush()
+            except:
+                pass
         
         for attempt in range(retries):
             try:
@@ -86,16 +103,24 @@ class RapidAPIClient:
                     if len(response_str) > 1000:
                         response_str = response_str[:1000] + "... [truncated]"
                     
+                    # Ensure logger is configured and get root logger
+                    root_logger = _ensure_logger_configured()
+                    
                     # Log response - ensure it's written
                     response_log = f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {response_size} bytes | Preview: {response_str[:200]}"
-                    logger.info(response_log)
-                    # Force flush to ensure it's written immediately
-                    for handler in logger.handlers:
-                        handler.flush()
-                    # Also log to root logger as backup
-                    root_logger = logging.getLogger()
+                    
+                    # Log to root logger directly (most reliable way)
                     if root_logger.handlers:
-                        root_logger.info(f"[services.rapidapi] {response_log}")
+                        root_logger.info(f"[RapidAPI] {response_log}")
+                    # Also log to module logger (for propagation)
+                    logger.info(response_log)
+                    
+                    # Force flush all handlers to ensure immediate write
+                    for handler in root_logger.handlers:
+                        try:
+                            handler.flush()
+                        except:
+                            pass
                     
                     return response_data
                 except ValueError as json_error:
