@@ -58,6 +58,7 @@ class InstagramService:
     def get_user_feed(self, user_id: str, next_max_id: Optional[str] = None, max_items: Optional[int] = None) -> tuple[List[Dict[str, Any]], Optional[str]]:
         """
         Get user feed with pagination support.
+        Continues fetching until no data or duplicates are found.
         
         Args:
             user_id: Instagram user ID
@@ -68,8 +69,9 @@ class InstagramService:
             Tuple of (list of posts, next_max_id for pagination)
         """
         all_posts = []
+        seen_ids = set()  # Track post IDs to detect duplicates
         current_max_id = next_max_id
-        max_pages = 10  # Limit to prevent infinite loops
+        max_pages = 50  # Safety limit to prevent infinite loops
         
         for page in range(max_pages):
             feed_data = self.client.get_feed(user_id, current_max_id)
@@ -115,24 +117,65 @@ class InstagramService:
                     edges = feed_data["user"]["edge_owner_to_timeline_media"].get("edges", [])
                     posts = [edge.get("node", {}) for edge in edges]
             
-            all_posts.extend(posts)
+            # If no posts returned, stop pagination
+            if not posts:
+                break
+            
+            # Filter out duplicates and add new posts
+            new_posts = []
+            duplicate_found = False
+            for post in posts:
+                # Get post ID (try multiple possible fields)
+                post_id = None
+                if isinstance(post, dict):
+                    post_id = post.get("id") or post.get("pk") or post.get("media_id") or post.get("code")
+                
+                if post_id:
+                    post_id_str = str(post_id)
+                    if post_id_str in seen_ids:
+                        duplicate_found = True
+                        continue
+                    seen_ids.add(post_id_str)
+                
+                new_posts.append(post)
+            
+            # If we found duplicates, stop pagination
+            if duplicate_found and not new_posts:
+                break
+            
+            all_posts.extend(new_posts)
             
             # Check if we have enough items
             if max_items and len(all_posts) >= max_items:
                 all_posts = all_posts[:max_items]
                 break
             
-            # Check for next page
+            # Check for next page - look in multiple possible locations
             next_max_id = None
             if isinstance(feed_data, dict):
-                next_max_id = feed_data.get("next_max_id") or feed_data.get("next_cursor") or feed_data.get("pagination", {}).get("next_max_id")
+                # Check top level
+                next_max_id = feed_data.get("next_max_id")
+                # Check in data.paging_info
+                if not next_max_id and "data" in feed_data and isinstance(feed_data["data"], dict):
+                    paging_info = feed_data["data"].get("paging_info", {})
+                    next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
+                # Check in pagination
+                if not next_max_id:
+                    pagination = feed_data.get("pagination", {})
+                    next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor")
+                # Check for more_available flag
+                if "data" in feed_data and isinstance(feed_data["data"], dict):
+                    paging_info = feed_data["data"].get("paging_info", {})
+                    more_available = paging_info.get("more_available", True)
+                    if not more_available and not next_max_id:
+                        break
             
             if not next_max_id:
                 break  # No more pages
             
             current_max_id = next_max_id
         
-        return all_posts, next_max_id
+        return all_posts, current_max_id
     
     def get_following_list(self, user_id: str) -> List[Dict[str, Any]]:
         """
@@ -416,6 +459,7 @@ class InstagramService:
     def get_video_feed(self, user_id: str, next_max_id: Optional[str] = None, max_items: Optional[int] = None) -> tuple[List[Dict[str, Any]], Optional[str]]:
         """
         Get all videos from a user's feed with pagination support.
+        Continues fetching until no data or duplicates are found.
         
         Args:
             user_id: Instagram user ID
@@ -426,8 +470,9 @@ class InstagramService:
             Tuple of (list of video posts, next_max_id for pagination)
         """
         all_videos = []
+        seen_ids = set()  # Track video IDs to detect duplicates
         current_max_id = next_max_id
-        max_pages = 10  # Limit to prevent infinite loops
+        max_pages = 50  # Safety limit to prevent infinite loops
         
         for page in range(max_pages):
             response = self.client.get_all_video(user_id, current_max_id)
@@ -470,24 +515,65 @@ class InstagramService:
                 elif "posts" in response:
                     videos = response["posts"]
             
-            all_videos.extend(videos)
+            # If no videos returned, stop pagination
+            if not videos:
+                break
+            
+            # Filter out duplicates and add new videos
+            new_videos = []
+            duplicate_found = False
+            for video in videos:
+                # Get video ID (try multiple possible fields)
+                video_id = None
+                if isinstance(video, dict):
+                    video_id = video.get("id") or video.get("pk") or video.get("media_id") or video.get("code")
+                
+                if video_id:
+                    video_id_str = str(video_id)
+                    if video_id_str in seen_ids:
+                        duplicate_found = True
+                        continue
+                    seen_ids.add(video_id_str)
+                
+                new_videos.append(video)
+            
+            # If we found duplicates, stop pagination
+            if duplicate_found and not new_videos:
+                break
+            
+            all_videos.extend(new_videos)
             
             # Check if we have enough items
             if max_items and len(all_videos) >= max_items:
                 all_videos = all_videos[:max_items]
                 break
             
-            # Check for next page
+            # Check for next page - look in multiple possible locations
             next_max_id = None
             if isinstance(response, dict):
-                next_max_id = response.get("next_max_id") or response.get("next_cursor") or response.get("pagination", {}).get("next_max_id")
+                # Check top level
+                next_max_id = response.get("next_max_id")
+                # Check in data.paging_info
+                if not next_max_id and "data" in response and isinstance(response["data"], dict):
+                    paging_info = response["data"].get("paging_info", {})
+                    next_max_id = paging_info.get("max_id") or paging_info.get("next_max_id")
+                # Check in pagination
+                if not next_max_id:
+                    pagination = response.get("pagination", {})
+                    next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor")
+                # Check for more_available flag
+                if "data" in response and isinstance(response["data"], dict):
+                    paging_info = response["data"].get("paging_info", {})
+                    more_available = paging_info.get("more_available", True)
+                    if not more_available and not next_max_id:
+                        break
             
             if not next_max_id:
                 break  # No more pages
             
             current_max_id = next_max_id
         
-        return all_videos, next_max_id
+        return all_videos, current_max_id
     
     def get_user_reels(self, user_id: str, include_feed_video: bool = True) -> List[Dict[str, Any]]:
         """
