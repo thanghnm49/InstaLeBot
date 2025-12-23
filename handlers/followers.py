@@ -64,10 +64,20 @@ async def followers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Split into multiple messages
             chunks = [message[i:i+4096] for i in range(0, len(message), 4096)]
             for chunk in chunks:
-                await update.message.reply_text(chunk, parse_mode='Markdown')
+                try:
+                    await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    # Fallback to plain text if HTML parsing fails
+                    logger.warning(f"HTML parse error in chunk, using plain text: {str(e)}")
+                    await update.message.reply_text(chunk, parse_mode=None)
             await processing_msg.delete()
         else:
-            await processing_msg.edit_text(message, parse_mode='Markdown')
+            try:
+                await processing_msg.edit_text(message, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                # Fallback to plain text if HTML parsing fails
+                logger.warning(f"HTML parse error, using plain text: {str(e)}")
+                await processing_msg.edit_text(message, parse_mode=None)
         
     except ValueError as e:
         logger.error(f"Value error in followers command: {str(e)}")

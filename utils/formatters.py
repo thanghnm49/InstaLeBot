@@ -2,32 +2,59 @@
 from typing import List, Dict, Any
 
 
+def escape_html(text: str) -> str:
+    """
+    Escape special characters for HTML.
+    Must escape & first to avoid double-escaping.
+    
+    Args:
+        text: Text to escape
+        
+    Returns:
+        Escaped text
+    """
+    if not text:
+        return ""
+    text = str(text)
+    # Escape in correct order: & first, then others
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    text = text.replace('"', '&quot;')
+    return text
+
+
 def format_user_list(users: List[Dict[str, Any]], title: str = "Users") -> str:
     """
-    Format a list of users into a readable message.
+    Format a list of users into a readable message using HTML.
     
     Args:
         users: List of user dictionaries
         title: Title for the list
         
     Returns:
-        Formatted message string
+        Formatted message string with HTML
     """
     if not users:
-        return f"{title}: No users found."
+        return f"<b>{escape_html(title)}</b>: No users found."
     
-    lines = [f"*{title}* ({len(users)} users):\n"]
+    lines = [f"<b>{escape_html(title)}</b> ({len(users)} users):\n"]
     
     for i, user in enumerate(users[:50], 1):  # Limit to 50 users
         username = user.get("username", user.get("user_name", "Unknown"))
         full_name = user.get("full_name", user.get("full_name", ""))
         user_id = user.get("pk", user.get("id", user.get("user_id", "")))
         
-        line = f"{i}. @{username}"
-        if full_name:
-            line += f" - {full_name}"
-        if user_id:
-            line += f" (ID: {user_id})"
+        # Escape all user data
+        username_escaped = escape_html(str(username))
+        full_name_escaped = escape_html(str(full_name)) if full_name else ""
+        user_id_escaped = escape_html(str(user_id)) if user_id else ""
+        
+        line = f"{i}. @{username_escaped}"
+        if full_name_escaped:
+            line += f" - {full_name_escaped}"
+        if user_id_escaped:
+            line += f" (ID: {user_id_escaped})"
         
         lines.append(line)
     
@@ -39,15 +66,15 @@ def format_user_list(users: List[Dict[str, Any]], title: str = "Users") -> str:
 
 def format_user_info(user_data: Dict[str, Any]) -> str:
     """
-    Format user profile information.
+    Format user profile information using HTML.
     
     Args:
         user_data: User data dictionary
         
     Returns:
-        Formatted message string
+        Formatted message string with HTML
     """
-    lines = ["*User Profile Information*\n"]
+    lines = ["<b>User Profile Information</b>\n"]
     
     # Extract user information
     username = user_data.get("username", user_data.get("user_name", "Unknown"))
@@ -61,21 +88,39 @@ def format_user_info(user_data: Dict[str, Any]) -> str:
     is_private = user_data.get("is_private", False)
     profile_pic = user_data.get("profile_pic_url", user_data.get("profile_picture", ""))
     
-    lines.append(f"*Username:* @{username}")
-    if full_name:
-        lines.append(f"*Full Name:* {full_name}")
-    if user_id:
-        lines.append(f"*User ID:* {user_id}")
-    if bio:
-        lines.append(f"*Bio:* {bio}")
+    # Escape all user data
+    username_escaped = escape_html(str(username))
+    full_name_escaped = escape_html(str(full_name)) if full_name else ""
+    user_id_escaped = escape_html(str(user_id)) if user_id else ""
+    bio_escaped = escape_html(str(bio)) if bio else ""
     
-    lines.append("\n*Statistics:*")
+    lines.append(f"<b>Username:</b> @{username_escaped}")
+    if full_name_escaped:
+        lines.append(f"<b>Full Name:</b> {full_name_escaped}")
+    if user_id_escaped:
+        lines.append(f"<b>User ID:</b> {user_id_escaped}")
+    if bio_escaped:
+        lines.append(f"<b>Bio:</b> {bio_escaped}")
+    
+    lines.append("\n<b>Statistics:</b>")
     if followers:
-        lines.append(f"  Followers: {followers:,}")
+        try:
+            followers_num = int(followers)
+            lines.append(f"  Followers: {followers_num:,}")
+        except (ValueError, TypeError):
+            lines.append(f"  Followers: {escape_html(str(followers))}")
     if following:
-        lines.append(f"  Following: {following:,}")
+        try:
+            following_num = int(following)
+            lines.append(f"  Following: {following_num:,}")
+        except (ValueError, TypeError):
+            lines.append(f"  Following: {escape_html(str(following))}")
     if posts:
-        lines.append(f"  Posts: {posts:,}")
+        try:
+            posts_num = int(posts)
+            lines.append(f"  Posts: {posts_num:,}")
+        except (ValueError, TypeError):
+            lines.append(f"  Posts: {escape_html(str(posts))}")
     
     if is_verified:
         lines.append("\n✓ Verified Account")
@@ -83,7 +128,8 @@ def format_user_info(user_data: Dict[str, Any]) -> str:
         lines.append("🔒 Private Account")
     
     if profile_pic:
-        lines.append(f"\n[Profile Picture]({profile_pic})")
+        profile_pic_escaped = escape_html(profile_pic)
+        lines.append(f"\n<a href=\"{profile_pic_escaped}\">Profile Picture</a>")
     
     return "\n".join(lines)
 
