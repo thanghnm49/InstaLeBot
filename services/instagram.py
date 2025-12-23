@@ -304,7 +304,10 @@ class InstagramService:
         """
         Get user profile information.
         Accepts either username or user ID.
-        Always converts username to user ID first using user_id_by_username API.
+        
+        Flow:
+        - If numeric (user ID) → call username_by_id to get username → call user_id_by_username with that username → call profile?user_id
+        - If not numeric (username) → call user_id_by_username to get user ID → call profile?user_id
         
         Args:
             identifier: Instagram username (with or without @) or user ID
@@ -314,14 +317,23 @@ class InstagramService:
         """
         identifier_clean = identifier.lstrip('@').strip()
         
-        # Try to determine if it's a user ID (numeric) or username
+        # Determine if it's a user ID (numeric) or username
         is_numeric = identifier_clean.isdigit()
         
         if is_numeric:
-            # It's a user ID, use directly with profile API
-            user_id = identifier_clean
+            # It's a user ID (numeric)
+            # Step 1: Get username from user ID using username_by_id API
+            username = self.get_username_by_user_id(identifier_clean)
+            if not username:
+                raise ValueError(f"Could not find username for user ID: {identifier_clean}")
+            
+            # Step 2: Get user ID from username using user_id_by_username API
+            user_id = self.get_user_id_by_username(username)
+            if not user_id:
+                raise ValueError(f"Could not find user ID for username: {username}")
         else:
-            # It's a username, convert to user ID first using user_id_by_username API
+            # It's a username (not numeric)
+            # Get user ID from username using user_id_by_username API
             user_id = self.get_user_id_by_username(identifier_clean)
             if not user_id:
                 raise ValueError(f"Could not find user ID for username: {identifier_clean}")
