@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 from services.rapidapi import RapidAPIClient
 import re
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,13 @@ class InstagramService:
         
         for page in range(max_pages):
             logger.info(f"Post feed pagination - Page {page + 1}/{max_pages} | Current next_max_id: {current_max_id} | Total posts so far: {len(all_posts)}")
+            
+            # Rate limiting: Add delay between API calls (except for first page)
+            if page > 0:
+                delay = 2  # 2 seconds delay between pagination requests
+                logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
+                time.sleep(delay)
+            
             feed_data = self.client.get_feed(user_id, current_max_id)
             
             # Extract posts from feed
@@ -658,6 +666,13 @@ class InstagramService:
         
         for page in range(max_pages):
             logger.info(f"Video feed pagination - Page {page + 1}/{max_pages} | Current next_max_id: {current_max_id} | Total videos so far: {len(all_videos)}")
+            
+            # Rate limiting: Add delay between API calls (except for first page)
+            if page > 0:
+                delay = 2  # 2 seconds delay between pagination requests
+                logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
+                time.sleep(delay)
+            
             response = self.client.get_all_video(user_id, current_max_id)
             
             # Extract list from response (structure may vary)
@@ -818,6 +833,11 @@ class InstagramService:
         """
         logger.info(f"Getting user reels for user_id={user_id}, include_feed_video={include_feed_video}")
         try:
+            # Rate limiting: Add delay before API call
+            delay = 1  # 1 second delay before reels API call
+            logger.info(f"Rate limiting: Waiting {delay} second before reels API call...")
+            time.sleep(delay)
+            
             response = self.client.get_reels(user_id, include_feed_video)
             
             # Extract list from response (structure may vary)

@@ -43,9 +43,10 @@ class RapidAPIClient:
         """
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
-        # Log API request
+        # Log API request with full URL and parameters
         params_str = json.dumps(params, ensure_ascii=False) if params else "{}"
-        logger.info(f"API Request: GET {endpoint} | Params: {params_str}")
+        full_url = f"{url}?{params_str}" if params else url
+        logger.info(f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}")
         
         for attempt in range(retries):
             try:

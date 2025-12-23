@@ -197,28 +197,48 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             image_url = formatted_post.get("image_url")
             text = formatted_post.get("text", "")
             
+            # Log original text before cleaning
+            logger.info(f"Post {i}: Original text length: {len(text) if text else 0}")
+            if text:
+                logger.debug(f"Post {i}: Original text (first 200 chars): {text[:200]}")
+                logger.debug(f"Post {i}: Original text bytes (first 200): {text.encode('utf-8', errors='replace')[:200]}")
+            
             # Clean and truncate caption (Telegram caption limit is 1024)
             if text:
                 caption_clean = clean_caption(text, max_length=900)
+                logger.debug(f"Post {i}: Cleaned caption length: {len(caption_clean)}")
             else:
                 caption_clean = f"Post {i}"
             
             try:
+                # Log the caption before sending to help debug parsing errors
+                logger.info(f"Post {i}: Preparing to send. Caption length: {len(caption_clean)}, Image URL: {image_url[:100] if image_url else 'None'}...")
+                logger.debug(f"Post {i}: Full caption text (first 500 chars): {caption_clean[:500]}")
+                logger.debug(f"Post {i}: Caption bytes: {caption_clean.encode('utf-8')[:500]}")
+                
                 if image_url:
                     # Try to send image with caption (using URL directly)
                     try:
+                        logger.debug(f"Post {i}: Attempting to send photo with caption via URL")
                         await update.message.reply_photo(
                             photo=image_url,
                             caption=caption_clean,
                             parse_mode=None  # Plain text to avoid parsing errors
                         )
                         sent_count += 1
-                    except Exception as e:
-                        logger.warning(f"Failed to send image from URL {i}: {str(e)}")
+                        logger.info(f"Post {i}: Successfully sent via URL")
+                    except BadRequest as e:
+                        # Log the exact error and the problematic string
+                        logger.error(f"Post {i}: BadRequest when sending photo with URL. Error: {str(e)}")
+                        logger.error(f"Post {i}: Problematic caption (full): {repr(caption_clean)}")
+                        logger.error(f"Post {i}: Caption byte representation: {caption_clean.encode('utf-8')}")
+                        logger.error(f"Post {i}: Caption length in bytes: {len(caption_clean.encode('utf-8'))}")
+                        logger.warning(f"Post {i}: Failed to send image from URL, trying download fallback")
                         # Fallback: download and send
                         try:
                             image_path = download_file(image_url)
                             try:
+                                logger.debug(f"Post {i}: Attempting to send photo with caption via file")
                                 with open(image_path, 'rb') as photo_file:
                                     await update.message.reply_photo(
                                         photo=photo_file,
@@ -226,27 +246,62 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         parse_mode=None
                                     )
                                 sent_count += 1
+                                logger.info(f"Post {i}: Successfully sent via file")
                             finally:
                                 # Clean up downloaded file
                                 delete_file(image_path)
-                        except Exception as download_error:
-                            logger.error(f"Failed to download and send image {i}: {str(download_error)}")
+                        except BadRequest as download_error:
+                            logger.error(f"Post {i}: BadRequest when sending photo with file. Error: {str(download_error)}")
+                            logger.error(f"Post {i}: Problematic caption (full): {repr(caption_clean)}")
+                            logger.error(f"Post {i}: Caption byte representation: {caption_clean.encode('utf-8')}")
                             # Final fallback: send text only
-                            await update.message.reply_text(
-                                caption_clean,
-                                parse_mode=None
-                            )
-                            sent_count += 1
+                            try:
+                                await update.message.reply_text(
+                                    caption_clean,
+                                    parse_mode=None
+                                )
+                                sent_count += 1
+                                logger.info(f"Post {i}: Successfully sent as text only")
+                            except BadRequest as text_error:
+                                logger.error(f"Post {i}: BadRequest even when sending as text. Error: {str(text_error)}")
+                                logger.error(f"Post {i}: Problematic text (full): {repr(caption_clean)}")
+                                raise
+                        except Exception as download_error:
+                            logger.error(f"Post {i}: Failed to download and send image: {str(download_error)}")
+                            # Final fallback: send text only
+                            try:
+                                await update.message.reply_text(
+                                    caption_clean,
+                                    parse_mode=None
+                                )
+                                sent_count += 1
+                            except BadRequest as text_error:
+                                logger.error(f"Post {i}: BadRequest when sending text fallback. Error: {str(text_error)}")
+                                logger.error(f"Post {i}: Problematic text (full): {repr(caption_clean)}")
+                                raise
+                    except Exception as e:
+                        logger.error(f"Post {i}: Unexpected error when sending photo: {str(e)}", exc_info=True)
+                        raise
                 else:
                     # No image, send text only
-                    await update.message.reply_text(
-                        caption_clean,
-                        parse_mode=None
-                    )
-                    sent_count += 1
+                    try:
+                        logger.debug(f"Post {i}: Attempting to send text only (no image)")
+                        await update.message.reply_text(
+                            caption_clean,
+                            parse_mode=None
+                        )
+                        sent_count += 1
+                        logger.info(f"Post {i}: Successfully sent as text only")
+                    except BadRequest as e:
+                        logger.error(f"Post {i}: BadRequest when sending text only. Error: {str(e)}")
+                        logger.error(f"Post {i}: Problematic text (full): {repr(caption_clean)}")
+                        logger.error(f"Post {i}: Text byte representation: {caption_clean.encode('utf-8')}")
+                        logger.error(f"Post {i}: Text length in bytes: {len(caption_clean.encode('utf-8'))}")
+                        raise
                 
             except Exception as e:
-                logger.error(f"Error sending post {i}: {str(e)}")
+                logger.error(f"Error sending post {i}: {str(e)}", exc_info=True)
+                logger.error(f"Post {i}: Caption that caused error: {repr(caption_clean)}")
                 continue
         
         # Update processing message
