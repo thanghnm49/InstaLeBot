@@ -5,6 +5,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from services.instagram import InstagramService
 from utils.formatters import format_error_message
+from utils.file_handler import download_file, delete_file
 import logging
 import re
 
@@ -149,25 +150,32 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.HTML
         )
         
-        # Send images with titles
+        # Format all videos to get only text and image_url
+        formatted_videos = []
+        for video in video_feed[:max_videos]:
+            try:
+                formatted_video = instagram_service.format_media_item(video)
+                formatted_videos.append(formatted_video)
+            except Exception as e:
+                logger.error(f"Error formatting video: {str(e)}")
+                continue
+        
+        # Send images with text captions
         sent_count = 0
         
-        for i, video in enumerate(video_feed[:max_videos], 1):
+        for i, formatted_video in enumerate(formatted_videos, 1):
+            image_url = formatted_video.get("image_url")
+            text = formatted_video.get("text", "")
+            
+            # Clean and truncate caption (Telegram caption limit is 1024)
+            if text:
+                caption_clean = clean_caption(text, max_length=900)
+            else:
+                caption_clean = f"Video {i}"
+            
             try:
-                # Extract image/thumbnail URL
-                image_url = instagram_service.extract_image_url(video)
-                
-                # Extract caption/title
-                caption = video.get("caption", video.get("text", ""))
-                if caption:
-                    # Clean and truncate caption (limit to 900 chars for safety)
-                    # Use plain text to avoid HTML parsing issues
-                    caption_clean = clean_caption(caption, max_length=900)
-                else:
-                    caption_clean = f"Video {i}"
-                
-                # Send image with caption (always use plain text for user content)
                 if image_url:
+                    # Try to send image with caption (using URL directly)
                     try:
                         await update.message.reply_photo(
                             photo=image_url,
@@ -176,27 +184,39 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         )
                         sent_count += 1
                     except Exception as e:
-                        logger.warning(f"Failed to send video thumbnail {i}: {str(e)}")
-                        # Fallback: send text only
+                        logger.warning(f"Failed to send image from URL {i}: {str(e)}")
+                        # Fallback: download and send
                         try:
+                            image_path = download_file(image_url)
+                            try:
+                                with open(image_path, 'rb') as photo_file:
+                                    await update.message.reply_photo(
+                                        photo=photo_file,
+                                        caption=caption_clean,
+                                        parse_mode=None
+                                    )
+                                sent_count += 1
+                            finally:
+                                # Clean up downloaded file
+                                delete_file(image_path)
+                        except Exception as download_error:
+                            logger.error(f"Failed to download and send image {i}: {str(download_error)}")
+                            # Final fallback: send text only
                             await update.message.reply_text(
-                                f"🎥 {caption_clean}",
+                                caption_clean,
                                 parse_mode=None
                             )
                             sent_count += 1
-                        except Exception as final_error:
-                            logger.error(f"Failed to send video {i} even as text: {str(final_error)}")
-                            continue
                 else:
                     # No thumbnail, send text only
                     await update.message.reply_text(
-                        f"🎥 {caption_clean}",
+                        caption_clean,
                         parse_mode=None
                     )
                     sent_count += 1
                 
             except Exception as e:
-                logger.error(f"Error processing video {i}: {str(e)}")
+                logger.error(f"Error sending video {i}: {str(e)}")
                 continue
         
         # Update processing message

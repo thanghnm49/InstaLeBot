@@ -79,10 +79,34 @@ class InstagramService:
             if isinstance(feed_data, list):
                 posts = feed_data
             elif isinstance(feed_data, dict):
-                if "data" in feed_data:
+                # Check for nested data.items structure first
+                if "data" in feed_data and isinstance(feed_data["data"], dict):
+                    data = feed_data["data"]
+                    if "items" in data and isinstance(data["items"], list):
+                        items = data["items"]
+                        # Extract media from items if they have a 'media' key
+                        posts = []
+                        for item in items:
+                            if isinstance(item, dict):
+                                if "media" in item:
+                                    posts.append(item["media"])
+                                else:
+                                    posts.append(item)
+                    elif isinstance(data, list):
+                        posts = data
+                elif "data" in feed_data and isinstance(feed_data["data"], list):
                     posts = feed_data["data"]
                 elif "items" in feed_data:
-                    posts = feed_data["items"]
+                    items = feed_data["items"]
+                    if isinstance(items, list):
+                        # Extract media from items if they have a 'media' key
+                        posts = []
+                        for item in items:
+                            if isinstance(item, dict):
+                                if "media" in item:
+                                    posts.append(item["media"])
+                                else:
+                                    posts.append(item)
                 elif "posts" in feed_data:
                     posts = feed_data["posts"]
                 elif "feed" in feed_data:
@@ -256,6 +280,53 @@ class InstagramService:
         
         return None
     
+    def format_media_item(self, media_item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Format media item to only include text and image_url properties.
+        
+        Args:
+            media_item: Media item dictionary (post, video, reel)
+            
+        Returns:
+            Dictionary with only 'text' and 'image_url' keys
+        """
+        if not isinstance(media_item, dict):
+            return {"text": "", "image_url": None}
+        
+        # Extract text/caption - handle nested caption structure
+        text = ""
+        if "caption" in media_item:
+            caption = media_item["caption"]
+            if isinstance(caption, dict):
+                text = caption.get("text", "")
+            else:
+                text = str(caption)
+        elif "text" in media_item:
+            text = media_item["text"]
+        
+        if not text:
+            text = ""
+        
+        # Extract image URL
+        image_url = self.extract_image_url(media_item)
+        
+        return {
+            "text": str(text) if text else "",
+            "image_url": image_url
+        }
+    
+    def format_media_list(self, media_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Format a list of media items to only include text and image_url properties.
+        
+        Args:
+            media_items: List of media item dictionaries
+            
+        Returns:
+            List of dictionaries with only 'text' and 'image_url' keys
+        """
+        return [self.format_media_item(item) for item in media_items]
+    
     def extract_media_urls(self, post_data: Dict[str, Any]) -> List[str]:
         """
         Extract media URLs from post data.
@@ -270,41 +341,77 @@ class InstagramService:
         
         # Handle different response structures
         if isinstance(post_data, dict):
-            # Check for video URLs
+            # Check for video URLs first (videos take priority)
+            if "video_versions" in post_data:
+                video_versions = post_data["video_versions"]
+                if isinstance(video_versions, list) and len(video_versions) > 0:
+                    # Get the first video URL (highest quality usually)
+                    first_video = video_versions[0]
+                    if "url" in first_video:
+                        media_urls.append(first_video["url"])
+                        # Return early if we found a video (don't add images)
+                        return media_urls
+            
+            # Check for direct video URL
             if "video_url" in post_data:
                 media_urls.append(post_data["video_url"])
-            if "video_versions" in post_data:
-                for video in post_data["video_versions"]:
-                    if "url" in video:
-                        media_urls.append(video["url"])
+                return media_urls
             
-            # Check for image URLs
+            # Check for image URLs (only if no video found)
             if "image_url" in post_data:
                 media_urls.append(post_data["image_url"])
             if "image_versions2" in post_data:
                 candidates = post_data["image_versions2"].get("candidates", [])
-                for img in candidates:
-                    if "url" in img:
-                        media_urls.append(img["url"])
+                if candidates:
+                    # Get the first (highest quality) image
+                    if "url" in candidates[0]:
+                        media_urls.append(candidates[0]["url"])
             
             # Check for carousel (multiple media)
             if "carousel_media" in post_data:
                 for item in post_data["carousel_media"]:
                     if "video_versions" in item:
-                        for video in item["video_versions"]:
-                            if "url" in video:
-                                media_urls.append(video["url"])
-                    if "image_versions2" in item:
+                        video_versions = item["video_versions"]
+                        if isinstance(video_versions, list) and len(video_versions) > 0:
+                            if "url" in video_versions[0]:
+                                media_urls.append(video_versions[0]["url"])
+                    elif "image_versions2" in item:
                         candidates = item["image_versions2"].get("candidates", [])
-                        for img in candidates:
-                            if "url" in img:
-                                media_urls.append(img["url"])
+                        if candidates and "url" in candidates[0]:
+                            media_urls.append(candidates[0]["url"])
             
             # Generic data field
             if "data" in post_data:
                 return self.extract_media_urls(post_data["data"])
         
         return media_urls
+    
+    def extract_video_url(self, media_item: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract the first video URL from video_versions array.
+        
+        Args:
+            media_item: Media item dictionary (post, video, reel)
+            
+        Returns:
+            Video URL if found, None otherwise
+        """
+        if not isinstance(media_item, dict):
+            return None
+        
+        # Check for video_versions array
+        if "video_versions" in media_item:
+            video_versions = media_item["video_versions"]
+            if isinstance(video_versions, list) and len(video_versions) > 0:
+                first_video = video_versions[0]
+                if "url" in first_video:
+                    return first_video["url"]
+        
+        # Check for direct video_url
+        if "video_url" in media_item:
+            return media_item["video_url"]
+        
+        return None
     
     def get_video_feed(self, user_id: str, next_max_id: Optional[str] = None, max_items: Optional[int] = None) -> tuple[List[Dict[str, Any]], Optional[str]]:
         """
@@ -330,13 +437,36 @@ class InstagramService:
             if isinstance(response, list):
                 videos = response
             elif isinstance(response, dict):
-                # Common response structures
-                if "data" in response:
+                # Check for nested data.items structure first
+                if "data" in response and isinstance(response["data"], dict):
+                    data = response["data"]
+                    if "items" in data and isinstance(data["items"], list):
+                        items = data["items"]
+                        # Extract media from items if they have a 'media' key
+                        videos = []
+                        for item in items:
+                            if isinstance(item, dict):
+                                if "media" in item:
+                                    videos.append(item["media"])
+                                else:
+                                    videos.append(item)
+                    elif isinstance(data, list):
+                        videos = data
+                elif "data" in response and isinstance(response["data"], list):
                     videos = response["data"]
                 elif "videos" in response:
                     videos = response["videos"]
                 elif "items" in response:
-                    videos = response["items"]
+                    items = response["items"]
+                    if isinstance(items, list):
+                        # Extract media from items if they have a 'media' key
+                        videos = []
+                        for item in items:
+                            if isinstance(item, dict):
+                                if "media" in item:
+                                    videos.append(item["media"])
+                                else:
+                                    videos.append(item)
                 elif "posts" in response:
                     videos = response["posts"]
             
@@ -370,19 +500,53 @@ class InstagramService:
         Returns:
             List of reel posts
         """
-        response = self.client.get_reels(user_id, include_feed_video)
-        # Extract list from response (structure may vary)
-        if isinstance(response, list):
-            return response
-        elif isinstance(response, dict):
-            # Common response structures
-            if "data" in response:
-                return response["data"]
-            elif "reels" in response:
-                return response["reels"]
-            elif "items" in response:
-                return response["items"]
-            elif "videos" in response:
-                return response["videos"]
+        try:
+            response = self.client.get_reels(user_id, include_feed_video)
+            
+            # Extract list from response (structure may vary)
+            if isinstance(response, list):
+                # Ensure all items are dicts
+                return [item for item in response if isinstance(item, dict)]
+            elif isinstance(response, dict):
+                # Check for nested data.items structure first (most common)
+                if "data" in response and isinstance(response["data"], dict):
+                    data = response["data"]
+                    if "items" in data and isinstance(data["items"], list):
+                        items = data["items"]
+                        # Extract media from items if they have a 'media' key
+                        result = []
+                        for item in items:
+                            if isinstance(item, dict):
+                                # If item has 'media' key, use that, otherwise use item directly
+                                if "media" in item:
+                                    result.append(item["media"])
+                                else:
+                                    result.append(item)
+                        return result
+                    elif isinstance(data, list):
+                        return [item for item in data if isinstance(item, dict)]
+                # Check for direct data as list
+                elif "data" in response and isinstance(response["data"], list):
+                    data = response["data"]
+                    return [item for item in data if isinstance(item, dict)]
+                # Other common structures
+                elif "reels" in response:
+                    reels = response["reels"]
+                    if isinstance(reels, list):
+                        return [item for item in reels if isinstance(item, dict)]
+                elif "items" in response:
+                    items = response["items"]
+                    if isinstance(items, list):
+                        return [item for item in items if isinstance(item, dict)]
+                elif "videos" in response:
+                    videos = response["videos"]
+                    if isinstance(videos, list):
+                        return [item for item in videos if isinstance(item, dict)]
+        except Exception as e:
+            # Log error but return empty list
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting user reels: {str(e)}")
+        
         return []
 
