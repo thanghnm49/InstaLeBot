@@ -127,6 +127,33 @@ docker compose ps           # Check status
 - **Docker logs**: `./docker-run.sh logs` or `docker compose logs -f`
 - **Application logs**: `logs/bot.log` and `logs/bot-error.log`
 
+## Auto-Update
+
+To automatically pull code updates and restart the container:
+
+1. **Manual update:**
+   ```bash
+   chmod +x update.sh
+   ./update.sh
+   ```
+
+2. **Setup automatic updates (cron job):**
+   ```bash
+   chmod +x setup-auto-update.sh
+   ./setup-auto-update.sh
+   ```
+   This will set up a cron job to check for updates at your chosen interval.
+
+3. **View update logs:**
+   ```bash
+   tail -f logs/update.log
+   ```
+
+4. **Remove auto-update:**
+   ```bash
+   crontab -e  # Delete the update line
+   ```
+
 ## Documentation
 
 - [Docker Deployment Guide](DOCKER.md) - Complete Docker setup and troubleshooting

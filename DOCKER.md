@@ -162,6 +162,8 @@ Currently, the bot uses polling, so no ports need to be exposed. If you switch t
 
 ## Updating the Bot
 
+### Manual Update
+
 1. **Pull latest changes:**
    ```bash
    git pull
@@ -177,6 +179,49 @@ Or with docker compose:
 ```bash
 docker compose build
 docker compose up -d
+```
+
+### Automatic Updates
+
+Use the update script to automatically pull and restart:
+
+```bash
+# Run update script manually
+chmod +x update.sh
+./update.sh
+```
+
+The script will:
+- Check for updates from git
+- Stop the container
+- Pull latest code
+- Rebuild image if Dockerfile/requirements changed
+- Restart the container
+
+### Setup Auto-Update (Cron Job)
+
+To automatically check for updates and restart:
+
+```bash
+chmod +x setup-auto-update.sh
+./setup-auto-update.sh
+```
+
+This will:
+- Set up a cron job to check for updates
+- Choose update frequency (every 5 min, 15 min, 30 min, hourly, daily, etc.)
+- Log updates to `logs/update.log`
+
+**View update logs:**
+```bash
+tail -f logs/update.log
+```
+
+**Remove auto-update:**
+```bash
+crontab -e  # Delete the update line
+# Or:
+crontab -l | grep -v 'update.sh' | crontab -
 ```
 
 ## Troubleshooting
