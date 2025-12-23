@@ -2,9 +2,11 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from services.instagram import InstagramService
-from utils.formatters import format_user_list, format_error_message
+from utils.formatters import format_user_list, format_error_message, safe_split_html_message
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -61,23 +63,33 @@ async def similar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Telegram message limit is 4096 characters
         if len(message) > 4096:
-            # Split into multiple messages
-            chunks = [message[i:i+4096] for i in range(0, len(message), 4096)]
+            # Split into multiple messages safely
+            chunks = safe_split_html_message(message, max_length=4096)
             for chunk in chunks:
                 try:
                     await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
-                except Exception as e:
+                except BadRequest as e:
                     # Fallback to plain text if HTML parsing fails
                     logger.warning(f"HTML parse error in chunk, using plain text: {str(e)}")
-                    await update.message.reply_text(chunk, parse_mode=None)
+                    plain_chunk = re.sub(r'<[^>]+>', '', chunk)
+                    await update.message.reply_text(plain_chunk, parse_mode=None)
+                except Exception as e:
+                    logger.error(f"Unexpected error sending chunk: {str(e)}")
+                    plain_chunk = re.sub(r'<[^>]+>', '', chunk)
+                    await update.message.reply_text(plain_chunk, parse_mode=None)
             await processing_msg.delete()
         else:
             try:
                 await processing_msg.edit_text(message, parse_mode=ParseMode.HTML)
-            except Exception as e:
+            except BadRequest as e:
                 # Fallback to plain text if HTML parsing fails
                 logger.warning(f"HTML parse error, using plain text: {str(e)}")
-                await processing_msg.edit_text(message, parse_mode=None)
+                plain_message = re.sub(r'<[^>]+>', '', message)
+                await processing_msg.edit_text(plain_message, parse_mode=None)
+            except Exception as e:
+                logger.error(f"Unexpected error editing message: {str(e)}")
+                plain_message = re.sub(r'<[^>]+>', '', message)
+                await processing_msg.edit_text(plain_message, parse_mode=None)
         
     except ValueError as e:
         logger.error(f"Value error in similar command: {str(e)}")

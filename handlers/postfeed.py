@@ -2,6 +2,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from services.instagram import InstagramService
 from utils.formatters import format_error_message
 import logging
@@ -189,7 +190,7 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             parse_mode=ParseMode.HTML
                         )
                         sent_count += 1
-                    except Exception as parse_error:
+                    except BadRequest as parse_error:
                         # If HTML parsing fails, try plain text
                         logger.warning(f"HTML parse error for post {i}, trying plain text: {str(parse_error)}")
                         try:
@@ -222,7 +223,7 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             parse_mode=ParseMode.HTML
                         )
                         sent_count += 1
-                    except Exception as e:
+                    except BadRequest as e:
                         # Fallback to plain text
                         logger.warning(f"HTML parse error for text-only post {i}, using plain text: {str(e)}")
                         plain_caption = clean_caption(caption, max_length=900) if caption else f"Post {i}"

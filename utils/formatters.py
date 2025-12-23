@@ -1,5 +1,6 @@
 """Message formatting utilities."""
 from typing import List, Dict, Any
+import re
 
 
 def escape_html(text: str) -> str:
@@ -132,6 +133,65 @@ def format_user_info(user_data: Dict[str, Any]) -> str:
         lines.append(f"\n<a href=\"{profile_pic_escaped}\">Profile Picture</a>")
     
     return "\n".join(lines)
+
+
+def safe_split_html_message(message: str, max_length: int = 4096) -> List[str]:
+    """
+    Split HTML message into chunks, ensuring we don't split in the middle of HTML tags.
+    
+    Args:
+        message: HTML formatted message
+        max_length: Maximum length per chunk (default 4096 for Telegram)
+        
+    Returns:
+        List of message chunks
+    """
+    if len(message) <= max_length:
+        return [message]
+    
+    chunks = []
+    current_pos = 0
+    
+    while current_pos < len(message):
+        # Calculate the end position for this chunk
+        end_pos = min(current_pos + max_length, len(message))
+        
+        # If this is the last chunk, just add it
+        if end_pos >= len(message):
+            chunks.append(message[current_pos:])
+            break
+        
+        # Try to find a safe split point (newline or space, not inside HTML tag)
+        # Look backwards from end_pos for a newline
+        safe_split = message.rfind('\n', current_pos, end_pos)
+        
+        # If no newline found, try to find a space
+        if safe_split == -1:
+            safe_split = message.rfind(' ', current_pos, end_pos)
+        
+        # If still no safe split found, check if we're in the middle of an HTML tag
+        # Look backwards for '<' and forwards for '>'
+        if safe_split == -1:
+            # Check if we're inside an HTML tag
+            last_tag_start = message.rfind('<', current_pos, end_pos)
+            next_tag_end = message.find('>', end_pos)
+            
+            if last_tag_start != -1 and next_tag_end != -1 and last_tag_start < end_pos < next_tag_end:
+                # We're inside a tag, split before the tag starts
+                safe_split = last_tag_start
+            else:
+                # Just split at max_length
+                safe_split = end_pos
+        
+        # Extract chunk
+        chunk = message[current_pos:safe_split].strip()
+        if chunk:
+            chunks.append(chunk)
+        
+        # Move to next position (skip the newline/space we split on)
+        current_pos = safe_split + 1 if safe_split < len(message) else end_pos
+    
+    return chunks if chunks else [message]
 
 
 def format_error_message(error: Exception) -> str:
