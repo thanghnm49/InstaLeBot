@@ -1,6 +1,7 @@
 """Handler for getting similar account recommendations."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.formatters import format_user_list, format_error_message
 import logging
@@ -16,16 +17,25 @@ async def similar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not context.args:
         await update.message.reply_text(
-            "Please provide a user ID.\n"
-            "Usage: /similar <user_id>\n"
-            "Example: /similar 25025320"
+            "🔍 <b>Similar Accounts Command</b>\n\n"
+            "Discover account recommendations similar to a specific Instagram user.\n\n"
+            "<b>Usage:</b>\n"
+            "<code>/similar &lt;user_id&gt;</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/similar 25025320</code>\n\n"
+            "<i>Find accounts you might be interested in!</i>",
+            parse_mode=ParseMode.HTML
         )
         return
     
     user_id = context.args[0]
     
     # Send processing message
-    processing_msg = await update.message.reply_text("⏳ Fetching similar account recommendations...")
+    processing_msg = await update.message.reply_text(
+        "⏳ <b>Finding similar accounts...</b>\n"
+        "Please wait while I analyze and find recommendations.",
+        parse_mode=ParseMode.HTML
+    )
     
     try:
         instagram_service = InstagramService()
@@ -35,7 +45,14 @@ async def similar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if not similar_accounts:
             await processing_msg.edit_text(
-                "❌ No similar accounts found. The user ID might be invalid or there are no recommendations available."
+                "❌ <b>No Similar Accounts Found</b>\n\n"
+                "Unable to find account recommendations.\n\n"
+                "Possible reasons:\n"
+                "• User ID is invalid\n"
+                "• No recommendations available\n"
+                "• Account is too new or has limited activity\n\n"
+                "Please try a different user ID.",
+                parse_mode=ParseMode.HTML
             )
             return
         

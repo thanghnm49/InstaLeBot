@@ -1,6 +1,7 @@
 """Handler for getting user information."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.formatters import format_user_info, format_error_message
 import logging
@@ -16,16 +17,25 @@ async def userinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not context.args:
         await update.message.reply_text(
-            "Please provide a user ID.\n"
-            "Usage: /userinfo <user_id>\n"
-            "Example: /userinfo 25025320"
+            "ℹ️ <b>User Information Command</b>\n\n"
+            "Get detailed profile information for an Instagram user.\n\n"
+            "<b>Usage:</b>\n"
+            "<code>/userinfo &lt;user_id&gt;</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/userinfo 25025320</code>\n\n"
+            "<i>Shows profile stats, bio, verification status, and more</i>",
+            parse_mode=ParseMode.HTML
         )
         return
     
     user_id = context.args[0]
     
     # Send processing message
-    processing_msg = await update.message.reply_text("⏳ Fetching user information...")
+    processing_msg = await update.message.reply_text(
+        "⏳ <b>Fetching user information...</b>\n"
+        "Please wait while I retrieve the profile data.",
+        parse_mode=ParseMode.HTML
+    )
     
     try:
         instagram_service = InstagramService()
@@ -35,7 +45,14 @@ async def userinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if not user_data:
             await processing_msg.edit_text(
-                "❌ User information not found. The user ID might be invalid."
+                "❌ <b>User Information Not Found</b>\n\n"
+                "Unable to retrieve user information.\n\n"
+                "Possible reasons:\n"
+                "• User ID is invalid\n"
+                "• User account doesn't exist\n"
+                "• Account is private or restricted\n\n"
+                "Please check the user ID and try again.",
+                parse_mode=ParseMode.HTML
             )
             return
         

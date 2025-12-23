@@ -1,6 +1,7 @@
 """Handler for downloading Instagram media."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.file_handler import download_file, is_video_file, is_image_file, delete_file
 from utils.formatters import format_error_message
@@ -17,9 +18,15 @@ async def download_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not context.args:
         await update.message.reply_text(
-            "Please provide an Instagram URL.\n"
-            "Usage: /download <instagram_url>\n"
-            "Example: /download https://www.instagram.com/p/ABC123/"
+            "📥 <b>Download Media Command</b>\n\n"
+            "Download videos and images from Instagram posts or reels.\n\n"
+            "<b>Usage:</b>\n"
+            "<code>/download &lt;instagram_url&gt;</code>\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>/download https://www.instagram.com/p/ABC123/</code>\n"
+            "• <code>/download https://www.instagram.com/reel/XYZ789/</code>\n\n"
+            "<i>Supports posts, reels, and carousel posts</i>",
+            parse_mode=ParseMode.HTML
         )
         return
     
@@ -28,12 +35,22 @@ async def download_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Validate URL
     if "instagram.com" not in url:
         await update.message.reply_text(
-            "❌ Invalid Instagram URL. Please provide a valid Instagram post or reel URL."
+            "❌ <b>Invalid URL</b>\n\n"
+            "Please provide a valid Instagram post or reel URL.\n\n"
+            "<b>Valid formats:</b>\n"
+            "• https://www.instagram.com/p/...\n"
+            "• https://www.instagram.com/reel/...\n"
+            "• https://www.instagram.com/tv/...",
+            parse_mode=ParseMode.HTML
         )
         return
     
     # Send processing message
-    processing_msg = await update.message.reply_text("⏳ Processing your request...")
+    processing_msg = await update.message.reply_text(
+        "⏳ <b>Processing your request...</b>\n"
+        "Downloading media from Instagram...",
+        parse_mode=ParseMode.HTML
+    )
     
     try:
         instagram_service = InstagramService()
@@ -46,7 +63,13 @@ async def download_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if not media_urls:
             await processing_msg.edit_text(
-                "❌ No media found in this post. It might be a text-only post or the URL is invalid."
+                "❌ <b>No Media Found</b>\n\n"
+                "This post might be:\n"
+                "• Text-only post (no images/videos)\n"
+                "• Private or deleted\n"
+                "• Invalid URL\n\n"
+                "Please try a different post or reel.",
+                parse_mode=ParseMode.HTML
             )
             return
         
@@ -108,11 +131,17 @@ async def download_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Update processing message
         if successful_downloads > 0:
             await processing_msg.edit_text(
-                f"✅ Successfully downloaded and sent {successful_downloads} out of {len(media_urls)} media file(s)!"
+                f"✅ <b>Download Complete!</b>\n\n"
+                f"Successfully downloaded and sent <b>{successful_downloads}</b> out of <b>{len(media_urls)}</b> media file(s).\n\n"
+                f"<i>Check your messages above!</i>",
+                parse_mode=ParseMode.HTML
             )
         else:
             await processing_msg.edit_text(
-                "❌ Failed to download any media files. Please try again."
+                "❌ <b>Download Failed</b>\n\n"
+                "Unable to download any media files.\n\n"
+                "Please try again or check if the post is accessible.",
+                parse_mode=ParseMode.HTML
             )
         
     except ValueError as e:

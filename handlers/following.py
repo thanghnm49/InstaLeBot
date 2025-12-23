@@ -1,6 +1,7 @@
 """Handler for getting following list."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.formatters import format_user_list, format_error_message
 import logging
@@ -16,16 +17,25 @@ async def following_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     if not context.args:
         await update.message.reply_text(
-            "Please provide a user ID.\n"
-            "Usage: /following <user_id>\n"
-            "Example: /following 25025320"
+            "👥 <b>Following List Command</b>\n\n"
+            "Get the list of users that a specific Instagram user is following.\n\n"
+            "<b>Usage:</b>\n"
+            "<code>/following &lt;user_id&gt;</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/following 25025320</code>\n\n"
+            "<i>Note: Works best with public accounts</i>",
+            parse_mode=ParseMode.HTML
         )
         return
     
     user_id = context.args[0]
     
     # Send processing message
-    processing_msg = await update.message.reply_text("⏳ Fetching following list...")
+    processing_msg = await update.message.reply_text(
+        "⏳ <b>Fetching following list...</b>\n"
+        "Please wait while I retrieve the data.",
+        parse_mode=ParseMode.HTML
+    )
     
     try:
         instagram_service = InstagramService()
@@ -35,7 +45,14 @@ async def following_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if not following_list:
             await processing_msg.edit_text(
-                "❌ No following list found. The user might be private or the user ID is invalid."
+                "❌ <b>No Following List Found</b>\n\n"
+                "Unable to retrieve the following list.\n\n"
+                "Possible reasons:\n"
+                "• User account is private\n"
+                "• User ID is invalid\n"
+                "• User has no following\n\n"
+                "Please check the user ID and try again.",
+                parse_mode=ParseMode.HTML
             )
             return
         
