@@ -225,16 +225,71 @@ class InstagramService:
                 return response["users"]
         return []
     
-    def get_user_info(self, user_id: str) -> Dict[str, Any]:
+    def get_user_id_by_username(self, username: str) -> Optional[str]:
         """
-        Get user profile information.
+        Get user ID by username.
         
         Args:
-            user_id: Instagram user ID
+            username: Instagram username (without @)
+            
+        Returns:
+            User ID if found, None otherwise
+        """
+        try:
+            # Remove @ if present
+            username = username.lstrip('@')
+            
+            response = self.client.get_user_id_by_username(username)
+            
+            # Extract user ID from response (structure may vary)
+            if isinstance(response, dict):
+                # Try common response structures
+                user_id = response.get("user_id") or response.get("id") or response.get("pk")
+                if user_id:
+                    return str(user_id)
+                # Check in data field
+                if "data" in response:
+                    data = response["data"]
+                    if isinstance(data, dict):
+                        user_id = data.get("user_id") or data.get("id") or data.get("pk")
+                        if user_id:
+                            return str(user_id)
+                    elif isinstance(data, str):
+                        # If data is directly the user ID
+                        return data
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting user ID by username: {str(e)}")
+        
+        return None
+    
+    def get_user_info(self, identifier: str) -> Dict[str, Any]:
+        """
+        Get user profile information.
+        Accepts either username or user ID.
+        
+        Args:
+            identifier: Instagram username (with or without @) or user ID
             
         Returns:
             User profile data
         """
+        # Check if identifier is numeric (likely user ID) or contains non-numeric chars (likely username)
+        identifier_clean = identifier.lstrip('@').strip()
+        
+        # Try to determine if it's a user ID (numeric) or username
+        is_numeric = identifier_clean.isdigit()
+        
+        if is_numeric:
+            # Assume it's a user ID, use directly
+            user_id = identifier_clean
+        else:
+            # Assume it's a username, convert to user ID first
+            user_id = self.get_user_id_by_username(identifier_clean)
+            if not user_id:
+                raise ValueError(f"Could not find user ID for username: {identifier_clean}")
+        
         return self.client.get_user_info(user_id)
     
     def get_post_media(self, post_url: str) -> Dict[str, Any]:

@@ -15,22 +15,23 @@ async def userinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle /userinfo command.
     
-    Usage: /userinfo <user_id>
+    Usage: /userinfo <username_or_user_id>
     """
     if not context.args:
         await update.message.reply_text(
             "ℹ️ <b>User Information Command</b>\n\n"
             "Get detailed profile information for an Instagram user.\n\n"
             "<b>Usage:</b>\n"
-            "<code>/userinfo &lt;user_id&gt;</code>\n\n"
-            "<b>Example:</b>\n"
-            "<code>/userinfo 25025320</code>\n\n"
+            "<code>/userinfo &lt;username_or_user_id&gt;</code>\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>/userinfo instagram</code> - By username\n"
+            "• <code>/userinfo 25025320</code> - By user ID\n\n"
             "<i>Shows profile stats, bio, verification status, and more</i>",
             parse_mode=ParseMode.HTML
         )
         return
     
-    user_id = context.args[0]
+    identifier = context.args[0]
     
     # Send processing message
     processing_msg = await update.message.reply_text(
@@ -42,18 +43,18 @@ async def userinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         instagram_service = InstagramService()
         
-        # Get user information
-        user_data = instagram_service.get_user_info(user_id)
+        # Get user information (accepts both username and user ID)
+        user_data = instagram_service.get_user_info(identifier)
         
         if not user_data:
             await processing_msg.edit_text(
                 "❌ <b>User Information Not Found</b>\n\n"
                 "Unable to retrieve user information.\n\n"
                 "Possible reasons:\n"
-                "• User ID is invalid\n"
+                "• Username or user ID is invalid\n"
                 "• User account doesn't exist\n"
                 "• Account is private or restricted\n\n"
-                "Please check the user ID and try again.",
+                "Please check the username/user ID and try again.",
                 parse_mode=ParseMode.HTML
             )
             return

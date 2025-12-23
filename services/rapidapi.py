@@ -131,6 +131,18 @@ class RapidAPIClient:
         """
         return self.get("followers", params={"user_id": user_id})
     
+    def get_user_id_by_username(self, username: str) -> Dict[str, Any]:
+        """
+        Get user ID by username.
+        
+        Args:
+            username: Instagram username (without @)
+            
+        Returns:
+            User ID data
+        """
+        return self.get("user_id_by_username", params={"username": username})
+    
     def get_user_info(self, user_id: str) -> Dict[str, Any]:
         """
         Get user profile information.
