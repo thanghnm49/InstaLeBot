@@ -38,6 +38,7 @@ def clean_caption(caption: str, max_length: int = 900) -> str:
     """
     Clean and truncate caption for Telegram.
     Telegram caption limit is 1024 characters, but we use 900 for safety.
+    Handles Unicode and encoding issues properly.
     
     Args:
         caption: Original caption text
@@ -49,20 +50,34 @@ def clean_caption(caption: str, max_length: int = 900) -> str:
     if not caption:
         return ""
     
-    # Remove extra whitespace
-    caption_clean = re.sub(r'\s+', ' ', str(caption)).strip()
-    
-    # Truncate if too long
-    if len(caption_clean) > max_length:
-        # Try to truncate at word boundary
-        truncated = caption_clean[:max_length]
-        last_space = truncated.rfind(' ')
-        if last_space > max_length * 0.8:  # If we can find a space in the last 20%
-            caption_clean = truncated[:last_space] + "..."
+    try:
+        # Ensure we're working with Unicode string
+        if isinstance(caption, bytes):
+            caption = caption.decode('utf-8', errors='replace')
         else:
-            caption_clean = truncated + "..."
-    
-    return caption_clean
+            caption = str(caption)
+        
+        # Remove extra whitespace
+        caption_clean = re.sub(r'\s+', ' ', caption).strip()
+        
+        # Truncate if too long (count Unicode characters properly)
+        if len(caption_clean) > max_length:
+            # Try to truncate at word boundary
+            truncated = caption_clean[:max_length]
+            last_space = truncated.rfind(' ')
+            if last_space > max_length * 0.8:  # If we can find a space in the last 20%
+                caption_clean = truncated[:last_space] + "..."
+            else:
+                caption_clean = truncated + "..."
+        
+        return caption_clean
+    except Exception as e:
+        # If encoding fails, try to salvage what we can
+        logger.warning(f"Error cleaning caption: {str(e)}")
+        try:
+            return str(caption).encode('utf-8', errors='replace').decode('utf-8', errors='replace')[:max_length]
+        except:
+            return "Caption unavailable"
 
 
 async def reels_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
