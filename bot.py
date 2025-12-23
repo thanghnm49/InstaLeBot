@@ -23,15 +23,35 @@ logs_dir = Path(__file__).parent / "logs"
 logs_dir.mkdir(exist_ok=True)
 
 # Configure logging with both file and console handlers
+# Use rotating file handler to prevent log files from growing too large
+from logging.handlers import RotatingFileHandler
+
+log_file = logs_dir / 'bot.log'
+file_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=10 * 1024 * 1024,  # 10MB per file
+    backupCount=5,  # Keep 5 backup files
+    encoding='utf-8'
+)
+
+console_handler = logging.StreamHandler()
+
+# Set format for both handlers
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# Configure root logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(logs_dir / 'bot.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    handlers=[file_handler, console_handler]
 )
+
 logger = logging.getLogger(__name__)
+logger.info(f"Logging configured. Log file: {log_file.absolute()}")
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
