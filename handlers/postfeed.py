@@ -123,9 +123,9 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>Usage:</b>\n"
             "<code>/postfeed &lt;user_id&gt; [max_items]</code>\n\n"
             "<b>Examples:</b>\n"
-            "• <code>/postfeed 25025320</code> - Get posts (default: up to 50)\n"
+            "• <code>/postfeed 25025320</code> - Get all posts\n"
             "• <code>/postfeed 25025320 30</code> - Get up to 30 posts\n\n"
-            "<i>Note: You can specify how many posts to fetch (max 100)</i>",
+            "<i>Note: If you specify a number larger than available posts, all posts will be fetched</i>",
             parse_mode=ParseMode.HTML
         )
         return
@@ -139,8 +139,7 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             max_items = int(context.args[1])
             if max_items < 1:
                 max_items = None
-            elif max_items > 100:
-                max_items = 100  # Limit to 100 items
+            # No upper limit - will fetch all available if max_items is larger
         except ValueError:
             max_items = None
     
@@ -170,7 +169,9 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         total_posts = len(posts)
-        max_posts = min(50, total_posts) if max_items is None else min(max_items, total_posts)
+        # If max_items is specified, use it (but not more than available)
+        # If max_items is None, fetch all available posts
+        max_posts = min(max_items, total_posts) if max_items else total_posts
         
         await processing_msg.edit_text(
             f"📸 <b>Found {total_posts} posts!</b>\n"

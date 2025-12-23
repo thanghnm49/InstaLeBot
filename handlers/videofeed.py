@@ -94,9 +94,9 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>Usage:</b>\n"
             "<code>/videofeed &lt;user_id&gt; [max_items]</code>\n\n"
             "<b>Examples:</b>\n"
-            "• <code>/videofeed 25025320</code> - Get videos (default: up to 50)\n"
+            "• <code>/videofeed 25025320</code> - Get all videos\n"
             "• <code>/videofeed 25025320 30</code> - Get up to 30 videos\n\n"
-            "<i>Note: You can specify how many videos to fetch (max 100)</i>",
+            "<i>Note: If you specify a number larger than available videos, all videos will be fetched</i>",
             parse_mode=ParseMode.HTML
         )
         return
@@ -110,8 +110,7 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             max_items = int(context.args[1])
             if max_items < 1:
                 max_items = None
-            elif max_items > 100:
-                max_items = 100  # Limit to 100 items
+            # No upper limit - will fetch all available if max_items is larger
         except ValueError:
             max_items = None
     
@@ -141,7 +140,9 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         total_videos = len(video_feed)
-        max_videos = min(50, total_videos) if max_items is None else min(max_items, total_videos)
+        # If max_items is specified, use it (but not more than available)
+        # If max_items is None, fetch all available videos
+        max_videos = min(max_items, total_videos) if max_items else total_videos
         
         await processing_msg.edit_text(
             f"🎥 <b>Found {total_videos} videos!</b>\n"

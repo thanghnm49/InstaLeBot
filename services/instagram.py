@@ -117,33 +117,70 @@ class InstagramService:
                     edges = feed_data["user"]["edge_owner_to_timeline_media"].get("edges", [])
                     posts = [edge.get("node", {}) for edge in edges]
             
-            # If no posts returned, stop pagination
-            if not posts:
-                break
-            
-            # Filter out duplicates and add new posts
-            new_posts = []
-            duplicate_found = False
-            for post in posts:
-                # Get post ID (try multiple possible fields)
-                post_id = None
-                if isinstance(post, dict):
-                    post_id = post.get("id") or post.get("pk") or post.get("media_id") or post.get("code")
+            # Process posts from this response and check for duplicates
+            if posts:
+                # Filter out duplicates based on title/text and image URL
+                new_posts = []
+                duplicate_found = False
                 
-                if post_id:
-                    post_id_str = str(post_id)
-                    if post_id_str in seen_ids:
-                        duplicate_found = True
-                        continue
-                    seen_ids.add(post_id_str)
+                for post in posts:
+                    # Extract title/text and image URL for duplicate detection
+                    post_text = ""
+                    post_image_url = None
+                    
+                    if isinstance(post, dict):
+                        # Get text/caption
+                        if "caption" in post:
+                            caption = post["caption"]
+                            if isinstance(caption, dict):
+                                post_text = caption.get("text", "")
+                            else:
+                                post_text = str(caption)
+                        elif "text" in post:
+                            post_text = post["text"]
+                        
+                        # Get image URL
+                        post_image_url = self.extract_image_url(post)
+                    
+                    # Check for duplicates by text and image URL
+                    is_duplicate = False
+                    if post_text:
+                        text_key = post_text.strip()[:100]  # Use first 100 chars as key
+                        if text_key in seen_ids:
+                            is_duplicate = True
+                            duplicate_found = True
+                        else:
+                            seen_ids.add(text_key)
+                    
+                    if not is_duplicate and post_image_url:
+                        if post_image_url in seen_ids:
+                            is_duplicate = True
+                            duplicate_found = True
+                        else:
+                            seen_ids.add(post_image_url)
+                    
+                    # Also check by post ID as fallback
+                    if not is_duplicate:
+                        post_id = None
+                        if isinstance(post, dict):
+                            post_id = post.get("id") or post.get("pk") or post.get("media_id") or post.get("code")
+                        
+                        if post_id:
+                            post_id_str = f"id_{post_id}"
+                            if post_id_str in seen_ids:
+                                is_duplicate = True
+                                duplicate_found = True
+                            else:
+                                seen_ids.add(post_id_str)
+                    
+                    if not is_duplicate:
+                        new_posts.append(post)
                 
-                new_posts.append(post)
-            
-            # If we found duplicates, stop pagination
-            if duplicate_found and not new_posts:
-                break
-            
-            all_posts.extend(new_posts)
+                # If we found duplicates and no new posts, stop pagination
+                if duplicate_found and not new_posts:
+                    break
+                
+                all_posts.extend(new_posts)
             
             # Check if we have enough items
             if max_items and len(all_posts) >= max_items:
@@ -172,18 +209,10 @@ class InstagramService:
                     pagination = feed_data.get("pagination", {})
                     if isinstance(pagination, dict):
                         next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor") or pagination.get("max_id")
-                
-                # Check for more_available flag to determine if we should continue
-                if "data" in feed_data and isinstance(feed_data["data"], dict):
-                    paging_info = feed_data["data"].get("paging_info", {})
-                    if isinstance(paging_info, dict):
-                        more_available = paging_info.get("more_available", True)
-                        if not more_available and not next_max_id:
-                            break  # No more pages available
             
-            # If no next_max_id found, stop pagination
+            # Stop pagination if no next_max_id found (no more pages)
             if not next_max_id:
-                break  # No more pages
+                break
             
             # Use the next_max_id from response for next request
             current_max_id = next_max_id
@@ -632,33 +661,70 @@ class InstagramService:
                 elif "posts" in response:
                     videos = response["posts"]
             
-            # If no videos returned, stop pagination
-            if not videos:
-                break
-            
-            # Filter out duplicates and add new videos
-            new_videos = []
-            duplicate_found = False
-            for video in videos:
-                # Get video ID (try multiple possible fields)
-                video_id = None
-                if isinstance(video, dict):
-                    video_id = video.get("id") or video.get("pk") or video.get("media_id") or video.get("code")
+            # Process videos from this response and check for duplicates
+            if videos:
+                # Filter out duplicates based on title/text and image URL
+                new_videos = []
+                duplicate_found = False
                 
-                if video_id:
-                    video_id_str = str(video_id)
-                    if video_id_str in seen_ids:
-                        duplicate_found = True
-                        continue
-                    seen_ids.add(video_id_str)
+                for video in videos:
+                    # Extract title/text and image URL for duplicate detection
+                    video_text = ""
+                    video_image_url = None
+                    
+                    if isinstance(video, dict):
+                        # Get text/caption
+                        if "caption" in video:
+                            caption = video["caption"]
+                            if isinstance(caption, dict):
+                                video_text = caption.get("text", "")
+                            else:
+                                video_text = str(caption)
+                        elif "text" in video:
+                            video_text = video["text"]
+                        
+                        # Get image URL (thumbnail)
+                        video_image_url = self.extract_image_url(video)
+                    
+                    # Check for duplicates by text and image URL
+                    is_duplicate = False
+                    if video_text:
+                        text_key = video_text.strip()[:100]  # Use first 100 chars as key
+                        if text_key in seen_ids:
+                            is_duplicate = True
+                            duplicate_found = True
+                        else:
+                            seen_ids.add(text_key)
+                    
+                    if not is_duplicate and video_image_url:
+                        if video_image_url in seen_ids:
+                            is_duplicate = True
+                            duplicate_found = True
+                        else:
+                            seen_ids.add(video_image_url)
+                    
+                    # Also check by video ID as fallback
+                    if not is_duplicate:
+                        video_id = None
+                        if isinstance(video, dict):
+                            video_id = video.get("id") or video.get("pk") or video.get("media_id") or video.get("code")
+                        
+                        if video_id:
+                            video_id_str = f"id_{video_id}"
+                            if video_id_str in seen_ids:
+                                is_duplicate = True
+                                duplicate_found = True
+                            else:
+                                seen_ids.add(video_id_str)
+                    
+                    if not is_duplicate:
+                        new_videos.append(video)
                 
-                new_videos.append(video)
-            
-            # If we found duplicates, stop pagination
-            if duplicate_found and not new_videos:
-                break
-            
-            all_videos.extend(new_videos)
+                # If we found duplicates and no new videos, stop pagination
+                if duplicate_found and not new_videos:
+                    break
+                
+                all_videos.extend(new_videos)
             
             # Check if we have enough items
             if max_items and len(all_videos) >= max_items:
@@ -687,18 +753,10 @@ class InstagramService:
                     pagination = response.get("pagination", {})
                     if isinstance(pagination, dict):
                         next_max_id = pagination.get("next_max_id") or pagination.get("next_cursor") or pagination.get("max_id")
-                
-                # Check for more_available flag to determine if we should continue
-                if "data" in response and isinstance(response["data"], dict):
-                    paging_info = response["data"].get("paging_info", {})
-                    if isinstance(paging_info, dict):
-                        more_available = paging_info.get("more_available", True)
-                        if not more_available and not next_max_id:
-                            break  # No more pages available
             
-            # If no next_max_id found, stop pagination
+            # Stop pagination if no next_max_id found (no more pages)
             if not next_max_id:
-                break  # No more pages
+                break
             
             # Use the next_max_id from response for next request
             current_max_id = next_max_id
