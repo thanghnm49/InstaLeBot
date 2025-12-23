@@ -33,8 +33,12 @@ file_handler = RotatingFileHandler(
     backupCount=5,  # Keep 5 backup files
     encoding='utf-8'
 )
+# Ensure file handler flushes immediately
+file_handler.setLevel(logging.INFO)
 
 console_handler = logging.StreamHandler()
+# Ensure console handler flushes immediately
+console_handler.setLevel(logging.INFO)
 
 # Set format for both handlers
 formatter = logging.Formatter(
@@ -52,6 +56,13 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.info(f"Logging configured. Log file: {log_file.absolute()}")
+
+# Test RapidAPI logging after configuration
+try:
+    from services.rapidapi import _test_logging
+    _test_logging()
+except:
+    pass
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

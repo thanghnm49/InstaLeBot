@@ -11,7 +11,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
-    PYTHONIOENCODING=utf-8
+    PYTHONIOENCODING=utf-8 \
+    PYTHONUNBUFFERED=1
 
 # Install system dependencies and locale
 RUN apt-get update && apt-get install -y \

@@ -14,6 +14,17 @@ logger.propagate = True
 # Set level to ensure it logs
 logger.setLevel(logging.INFO)
 
+# Test log when module is imported (will only show if logging is configured)
+def _test_logging():
+    """Test if logging is working - called after bot.py configures logging"""
+    try:
+        root_logger = logging.getLogger()
+        if root_logger.handlers:
+            root_logger.info("rapidapi - INFO - RapidAPI module loaded and logging is configured")
+            print("[RapidAPI] Module loaded, logging should work", flush=True)
+    except:
+        pass
+
 
 class RapidAPIClient:
     """Client for making requests to RapidAPI endpoints."""
@@ -57,20 +68,30 @@ class RapidAPIClient:
         if logger.level == 0:  # NOTSET
             logger.setLevel(logging.INFO)
         
-        # Log request - use both root logger and module logger
+        # Log request - ensure it's written to file
         request_log = f"API Request: GET {endpoint} | URL: {full_url} | Params: {params_str}"
         
-        # Log using module logger (will propagate to root if configured)
-        logger.info(request_log)
-        
-        # Also log directly to root logger as backup
+        # Get root logger and log directly
         root_logger = logging.getLogger()
+        
+        # Always log to root logger (it should have handlers from bot.py)
         root_logger.info(f"rapidapi - INFO - {request_log}")
+        
+        # Also log using module logger
+        logger.info(request_log)
         
         # Force flush all handlers to ensure immediate write
         try:
             for handler in root_logger.handlers:
                 handler.flush()
+        except:
+            pass
+        
+        # Also write directly to stdout/stderr for Docker logs (VPS compatibility)
+        import sys
+        try:
+            sys.stderr.write(f"[RapidAPI] {request_log}\n")
+            sys.stderr.flush()
         except:
             pass
         
@@ -89,20 +110,30 @@ class RapidAPIClient:
                     if len(response_str) > 1000:
                         response_str = response_str[:1000] + "... [truncated]"
                     
-                    # Log response - use both root logger and module logger
+                    # Log response - ensure it's written to file
                     response_log = f"API Response: GET {endpoint} | Status: {response.status_code} | Response size: {response_size} bytes | Preview: {response_str[:200]}"
                     
-                    # Log using module logger (will propagate to root if configured)
-                    logger.info(response_log)
-                    
-                    # Also log directly to root logger as backup
+                    # Get root logger and log directly
                     root_logger = logging.getLogger()
+                    
+                    # Always log to root logger (it should have handlers from bot.py)
                     root_logger.info(f"rapidapi - INFO - {response_log}")
+                    
+                    # Also log using module logger
+                    logger.info(response_log)
                     
                     # Force flush all handlers to ensure immediate write
                     try:
                         for handler in root_logger.handlers:
                             handler.flush()
+                    except:
+                        pass
+                    
+                    # Also write directly to stderr for Docker logs (VPS compatibility)
+                    import sys
+                    try:
+                        sys.stderr.write(f"[RapidAPI] {response_log}\n")
+                        sys.stderr.flush()
                     except:
                         pass
                     
