@@ -91,17 +91,21 @@ class RapidAPIClient:
         
         raise requests.exceptions.RequestException(f"Failed to fetch {url} after {retries} attempts")
     
-    def get_feed(self, user_id: str) -> Dict[str, Any]:
+    def get_feed(self, user_id: str, next_max_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Get user feed.
         
         Args:
             user_id: Instagram user ID
+            next_max_id: Pagination cursor for next page
             
         Returns:
             Feed data
         """
-        return self.get("feed", params={"user_id": user_id})
+        params = {"user_id": user_id}
+        if next_max_id:
+            params["next_max_id"] = next_max_id
+        return self.get("feed", params=params)
     
     def get_following(self, user_id: str) -> Dict[str, Any]:
         """
@@ -163,17 +167,21 @@ class RapidAPIClient:
         """
         return self.get("discover_chaining", params={"user_id": user_id})
     
-    def get_all_video(self, user_id: str) -> Dict[str, Any]:
+    def get_all_video(self, user_id: str, next_max_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Get all videos from a user's feed.
         
         Args:
             user_id: Instagram user ID
+            next_max_id: Pagination cursor for next page
             
         Returns:
             Video feed data
         """
-        return self.get("all_video", params={"user_id": user_id})
+        params = {"user_id": user_id}
+        if next_max_id:
+            params["next_max_id"] = next_max_id
+        return self.get("all_video", params=params)
     
     def get_reels(self, user_id: str, include_feed_video: bool = True) -> Dict[str, Any]:
         """

@@ -1,70 +1,31 @@
 """Handler for getting user post feed."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.formatters import format_error_message
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 
-def format_post_feed(posts: list, title: str = "Post Feed") -> str:
+def escape_html(text: str) -> str:
     """
-    Format a list of posts into a readable message.
+    Escape special characters for HTML.
     
     Args:
-        posts: List of post dictionaries
-        title: Title for the list
+        text: Text to escape
         
     Returns:
-        Formatted message string
+        Escaped text
     """
-    if not posts:
-        return f"{title}: No posts found."
-    
-    lines = [f"*{title}* ({len(posts)} posts):\n"]
-    
-    for i, post in enumerate(posts[:20], 1):  # Limit to 20 posts
-        # Extract post information
-        post_id = post.get("pk", post.get("id", post.get("code", "")))
-        caption = post.get("caption", post.get("text", ""))
-        like_count = post.get("like_count", post.get("likes", ""))
-        comment_count = post.get("comment_count", post.get("comments", ""))
-        timestamp = post.get("taken_at", post.get("timestamp", ""))
-        post_type = post.get("media_type", post.get("type", ""))
-        
-        # Get post URL if available
-        post_url = ""
-        if post_id:
-            post_url = f"https://www.instagram.com/p/{post_id}/"
-        elif "code" in post:
-            post_url = f"https://www.instagram.com/p/{post.get('code')}/"
-        
-        # Determine post type emoji
-        type_emoji = "📷"
-        if post_type == 2 or "video" in str(post_type).lower():
-            type_emoji = "🎥"
-        elif post_type == 8 or "carousel" in str(post_type).lower():
-            type_emoji = "📸"
-        
-        line = f"{i}. {type_emoji} Post {post_id}"
-        if caption:
-            # Truncate long captions
-            caption_preview = caption[:50] + "..." if len(caption) > 50 else caption
-            line += f"\n   Caption: {caption_preview}"
-        if like_count:
-            line += f" | ❤️ {like_count:,}"
-        if comment_count:
-            line += f" | 💬 {comment_count:,}"
-        if post_url:
-            line += f"\n   [View Post]({post_url})"
-        
-        lines.append(line)
-    
-    if len(posts) > 20:
-        lines.append(f"\n... and {len(posts) - 20} more posts")
-    
-    return "\n".join(lines)
+    if not text:
+        return ""
+    return (str(text)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;'))
 
 
 def extract_posts_from_feed(feed_data: dict) -> list:
@@ -100,17 +61,30 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle /postfeed command.
     
-    Usage: /postfeed <user_id>
+    Usage: /postfeed <user_id> [max_items]
     """
     if not context.args:
         await update.message.reply_text(
             "Please provide a user ID.\n"
-            "Usage: /postfeed <user_id>\n"
-            "Example: /postfeed 25025320"
+            "Usage: /postfeed <user_id> [max_items]\n"
+            "Example: /postfeed 25025320\n"
+            "Example: /postfeed 25025320 50"
         )
         return
     
     user_id = context.args[0]
+    
+    # Parse optional max_items parameter
+    max_items = None
+    if len(context.args) > 1:
+        try:
+            max_items = int(context.args[1])
+            if max_items < 1:
+                max_items = None
+            elif max_items > 100:
+                max_items = 100  # Limit to 100 items
+        except ValueError:
+            max_items = None
     
     # Send processing message
     processing_msg = await update.message.reply_text("⏳ Fetching post feed...")
@@ -118,11 +92,8 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         instagram_service = InstagramService()
         
-        # Get user feed
-        feed_data = instagram_service.get_user_feed(user_id)
-        
-        # Extract posts from feed
-        posts = extract_posts_from_feed(feed_data)
+        # Get user feed with pagination
+        posts, next_max_id = instagram_service.get_user_feed(user_id, max_items=max_items)
         
         if not posts:
             await processing_msg.edit_text(
@@ -130,18 +101,67 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        # Format and send
-        message = format_post_feed(posts, "Post Feed")
+        total_posts = len(posts)
+        max_posts = min(50, total_posts) if max_items is None else min(max_items, total_posts)
         
-        # Telegram message limit is 4096 characters
-        if len(message) > 4096:
-            # Split into multiple messages
-            chunks = [message[i:i+4096] for i in range(0, len(message), 4096)]
-            for chunk in chunks:
-                await update.message.reply_text(chunk, parse_mode='Markdown')
-            await processing_msg.delete()
+        await processing_msg.edit_text(f"📸 Found {total_posts} posts. Sending {max_posts} images...")
+        
+        # Send images with titles
+        sent_count = 0
+        
+        for i, post in enumerate(posts[:max_posts], 1):
+            try:
+                # Extract image URL
+                image_url = instagram_service.extract_image_url(post)
+                
+                # Extract caption/title
+                caption = post.get("caption", post.get("text", ""))
+                if caption:
+                    # Clean and truncate caption
+                    caption_clean = re.sub(r'\s+', ' ', str(caption)).strip()
+                    title = caption_clean[:200] + "..." if len(caption_clean) > 200 else caption_clean
+                    escaped_title = escape_html(title)
+                else:
+                    escaped_title = f"Post {i}"
+                
+                # Send image with caption
+                if image_url:
+                    try:
+                        await update.message.reply_photo(
+                            photo=image_url,
+                            caption=escaped_title,
+                            parse_mode=ParseMode.HTML
+                        )
+                        sent_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to send image {i}: {str(e)}")
+                        # Fallback: send text only
+                        await update.message.reply_text(
+                            f"📷 {escaped_title}",
+                            parse_mode=ParseMode.HTML
+                        )
+                        sent_count += 1
+                else:
+                    # No image, send text only
+                    await update.message.reply_text(
+                        f"📷 {escaped_title}",
+                        parse_mode=ParseMode.HTML
+                    )
+                    sent_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing post {i}: {str(e)}")
+                continue
+        
+        # Update processing message
+        if sent_count > 0:
+            await processing_msg.edit_text(
+                f"✅ Sent {sent_count} post(s) with images!"
+            )
         else:
-            await processing_msg.edit_text(message, parse_mode='Markdown')
+            await processing_msg.edit_text(
+                "❌ Failed to send any posts. Please try again."
+            )
         
     except ValueError as e:
         logger.error(f"Value error in postfeed command: {str(e)}")
@@ -149,4 +169,3 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in postfeed command: {str(e)}", exc_info=True)
         await processing_msg.edit_text(format_error_message(e))
-

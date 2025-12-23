@@ -1,79 +1,61 @@
 """Handler for getting user video feed."""
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 from services.instagram import InstagramService
 from utils.formatters import format_error_message
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 
-def format_video_feed(videos: list, title: str = "Video Feed") -> str:
+def escape_html(text: str) -> str:
     """
-    Format a list of videos into a readable message.
+    Escape special characters for HTML.
     
     Args:
-        videos: List of video dictionaries
-        title: Title for the list
+        text: Text to escape
         
     Returns:
-        Formatted message string
+        Escaped text
     """
-    if not videos:
-        return f"{title}: No videos found."
-    
-    lines = [f"*{title}* ({len(videos)} videos):\n"]
-    
-    for i, video in enumerate(videos[:20], 1):  # Limit to 20 videos
-        # Extract video information
-        video_id = video.get("pk", video.get("id", video.get("code", "")))
-        video_url = video.get("video_url", "")
-        caption = video.get("caption", video.get("text", ""))
-        like_count = video.get("like_count", video.get("likes", ""))
-        comment_count = video.get("comment_count", video.get("comments", ""))
-        timestamp = video.get("taken_at", video.get("timestamp", ""))
-        
-        # Try to get video URL from video_versions if not directly available
-        if not video_url and "video_versions" in video:
-            video_versions = video.get("video_versions", [])
-            if video_versions and len(video_versions) > 0:
-                video_url = video_versions[0].get("url", "")
-        
-        line = f"{i}. Video {video_id}"
-        if caption:
-            # Truncate long captions
-            caption_preview = caption[:50] + "..." if len(caption) > 50 else caption
-            line += f"\n   Caption: {caption_preview}"
-        if like_count:
-            line += f" | ❤️ {like_count:,}"
-        if comment_count:
-            line += f" | 💬 {comment_count:,}"
-        if video_url:
-            line += f"\n   [Watch Video]({video_url})"
-        
-        lines.append(line)
-    
-    if len(videos) > 20:
-        lines.append(f"\n... and {len(videos) - 20} more videos")
-    
-    return "\n".join(lines)
+    if not text:
+        return ""
+    return (str(text)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;'))
 
 
 async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle /videofeed command.
     
-    Usage: /videofeed <user_id>
+    Usage: /videofeed <user_id> [max_items]
     """
     if not context.args:
         await update.message.reply_text(
             "Please provide a user ID.\n"
-            "Usage: /videofeed <user_id>\n"
-            "Example: /videofeed 25025320"
+            "Usage: /videofeed <user_id> [max_items]\n"
+            "Example: /videofeed 25025320\n"
+            "Example: /videofeed 25025320 50"
         )
         return
     
     user_id = context.args[0]
+    
+    # Parse optional max_items parameter
+    max_items = None
+    if len(context.args) > 1:
+        try:
+            max_items = int(context.args[1])
+            if max_items < 1:
+                max_items = None
+            elif max_items > 100:
+                max_items = 100  # Limit to 100 items
+        except ValueError:
+            max_items = None
     
     # Send processing message
     processing_msg = await update.message.reply_text("⏳ Fetching video feed...")
@@ -81,8 +63,8 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         instagram_service = InstagramService()
         
-        # Get video feed
-        video_feed = instagram_service.get_video_feed(user_id)
+        # Get video feed with pagination
+        video_feed, next_max_id = instagram_service.get_video_feed(user_id, max_items=max_items)
         
         if not video_feed:
             await processing_msg.edit_text(
@@ -90,18 +72,67 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        # Format and send
-        message = format_video_feed(video_feed, "Video Feed")
+        total_videos = len(video_feed)
+        max_videos = min(50, total_videos) if max_items is None else min(max_items, total_videos)
         
-        # Telegram message limit is 4096 characters
-        if len(message) > 4096:
-            # Split into multiple messages
-            chunks = [message[i:i+4096] for i in range(0, len(message), 4096)]
-            for chunk in chunks:
-                await update.message.reply_text(chunk, parse_mode='Markdown')
-            await processing_msg.delete()
+        await processing_msg.edit_text(f"🎥 Found {total_videos} videos. Sending {max_videos} thumbnails...")
+        
+        # Send images with titles
+        sent_count = 0
+        
+        for i, video in enumerate(video_feed[:max_videos], 1):
+            try:
+                # Extract image/thumbnail URL
+                image_url = instagram_service.extract_image_url(video)
+                
+                # Extract caption/title
+                caption = video.get("caption", video.get("text", ""))
+                if caption:
+                    # Clean and truncate caption
+                    caption_clean = re.sub(r'\s+', ' ', str(caption)).strip()
+                    title = caption_clean[:200] + "..." if len(caption_clean) > 200 else caption_clean
+                    escaped_title = escape_html(title)
+                else:
+                    escaped_title = f"Video {i}"
+                
+                # Send image with caption
+                if image_url:
+                    try:
+                        await update.message.reply_photo(
+                            photo=image_url,
+                            caption=escaped_title,
+                            parse_mode=ParseMode.HTML
+                        )
+                        sent_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to send video thumbnail {i}: {str(e)}")
+                        # Fallback: send text only
+                        await update.message.reply_text(
+                            f"🎥 {escaped_title}",
+                            parse_mode=ParseMode.HTML
+                        )
+                        sent_count += 1
+                else:
+                    # No thumbnail, send text only
+                    await update.message.reply_text(
+                        f"🎥 {escaped_title}",
+                        parse_mode=ParseMode.HTML
+                    )
+                    sent_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing video {i}: {str(e)}")
+                continue
+        
+        # Update processing message
+        if sent_count > 0:
+            await processing_msg.edit_text(
+                f"✅ Sent {sent_count} video(s) with thumbnails!"
+            )
         else:
-            await processing_msg.edit_text(message, parse_mode='Markdown')
+            await processing_msg.edit_text(
+                "❌ Failed to send any videos. Please try again."
+            )
         
     except ValueError as e:
         logger.error(f"Value error in videofeed command: {str(e)}")
@@ -109,4 +140,3 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in videofeed command: {str(e)}", exc_info=True)
         await processing_msg.edit_text(format_error_message(e))
-
