@@ -160,11 +160,20 @@ class RapidAPIClient:
         Get user profile information.
         
         Args:
-            user_id: Instagram user ID
+            user_id: Instagram user ID (must be numeric, not username)
             
         Returns:
             User profile data
+            
+        Raises:
+            ValueError: If user_id is not numeric (should use get_user_id_by_username first)
         """
+        # Validate that user_id is numeric - never accept username here
+        if not user_id.isdigit():
+            raise ValueError(
+                f"Profile API only accepts numeric user IDs, not usernames. "
+                f"Received: '{user_id}'. Use get_user_id_by_username() first to convert username to user ID."
+            )
         return self.get("profile", params={"user_id": user_id})
     
     def get_post_info(self, post_url: str) -> Dict[str, Any]:
