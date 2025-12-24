@@ -310,29 +310,46 @@ class InstagramService:
             
             response = self.client.get_user_id_by_username(username)
             
+            logger.info(f"API response for username '{username}': {response}")
+            logger.info(f"Response type: {type(response)}, Response keys: {list(response.keys()) if isinstance(response, dict) else 'N/A'}")
+            
             # Extract user ID from response (structure may vary)
             if isinstance(response, dict):
                 # Try common response structures (check both lowercase and capitalized versions)
-                user_id = (
-                    response.get("user_id") or 
-                    response.get("UserID") or  # API returns "UserID" with capital letters
-                    response.get("user_id") or 
-                    response.get("id") or 
-                    response.get("Id") or
-                    response.get("ID") or
-                    response.get("pk")
-                )
-                if user_id:
+                # Note: Check UserID first since that's what the API returns
+                user_id = None
+                if "UserID" in response:
+                    user_id = response.get("UserID")
+                    logger.info(f"Found UserID in response: {user_id} (type: {type(user_id)})")
+                elif "user_id" in response:
+                    user_id = response.get("user_id")
+                    logger.info(f"Found user_id in response: {user_id} (type: {type(user_id)})")
+                elif "id" in response:
+                    user_id = response.get("id")
+                    logger.info(f"Found id in response: {user_id} (type: {type(user_id)})")
+                elif "Id" in response:
+                    user_id = response.get("Id")
+                    logger.info(f"Found Id in response: {user_id} (type: {type(user_id)})")
+                elif "ID" in response:
+                    user_id = response.get("ID")
+                    logger.info(f"Found ID in response: {user_id} (type: {type(user_id)})")
+                elif "pk" in response:
+                    user_id = response.get("pk")
+                    logger.info(f"Found pk in response: {user_id} (type: {type(user_id)})")
+                
+                logger.info(f"Extracted user_id from top-level keys: {user_id}")
+                if user_id is not None and user_id != "":
                     logger.info(f"Found user_id={user_id} from response keys: {list(response.keys())}")
                     return str(user_id)
                 # Check in data field
                 if "data" in response:
                     data = response["data"]
+                    logger.info(f"Checking data field: {data}")
                     if isinstance(data, dict):
                         user_id = (
-                            data.get("user_id") or 
-                            data.get("UserID") or 
-                            data.get("id") or 
+                            data.get("user_id") or
+                            data.get("UserID") or
+                            data.get("id") or
                             data.get("Id") or
                             data.get("ID") or
                             data.get("pk")
@@ -342,11 +359,11 @@ class InstagramService:
                             return str(user_id)
                     elif isinstance(data, str):
                         # If data is directly the user ID
+                        logger.info(f"Data is string, returning as user_id: {data}")
                         return data
+                logger.error(f"Could not extract user_id from response: {response}")
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error getting user ID by username: {str(e)}")
+            logger.error(f"Error getting user ID by username '{username}': {str(e)}", exc_info=True)
         
         return None
     
@@ -363,25 +380,38 @@ class InstagramService:
         try:
             response = self.client.get_username_by_user_id(user_id)
             
+            logger.info(f"API response for user_id '{user_id}': {response}")
+            logger.info(f"Response type: {type(response)}, Response keys: {list(response.keys()) if isinstance(response, dict) else 'N/A'}")
+            
             # Extract username from response (structure may vary)
             if isinstance(response, dict):
                 # Try common response structures (check both lowercase and capitalized versions)
-                username = (
-                    response.get("username") or 
-                    response.get("UserName") or  # API returns "UserName" with capital letters
-                    response.get("user_name") or
-                    response.get("userName")
-                )
-                if username:
+                # Note: Check UserName first since that's what the API returns
+                username = None
+                if "UserName" in response:
+                    username = response.get("UserName")
+                    logger.info(f"Found UserName in response: {username} (type: {type(username)})")
+                elif "username" in response:
+                    username = response.get("username")
+                    logger.info(f"Found username in response: {username} (type: {type(username)})")
+                elif "user_name" in response:
+                    username = response.get("user_name")
+                    logger.info(f"Found user_name in response: {username} (type: {type(username)})")
+                elif "userName" in response:
+                    username = response.get("userName")
+                    logger.info(f"Found userName in response: {username} (type: {type(username)})")
+                
+                if username is not None and username != "":
                     logger.info(f"Found username={username} from response keys: {list(response.keys())}")
                     return str(username)
                 # Check in data field
                 if "data" in response:
                     data = response["data"]
+                    logger.info(f"Checking data field: {data}")
                     if isinstance(data, dict):
                         username = (
-                            data.get("username") or 
-                            data.get("UserName") or 
+                            data.get("username") or
+                            data.get("UserName") or
                             data.get("user_name") or
                             data.get("userName")
                         )
@@ -390,11 +420,11 @@ class InstagramService:
                             return str(username)
                     elif isinstance(data, str):
                         # If data is directly the username
+                        logger.info(f"Data is string, returning as username: {data}")
                         return data
+                logger.error(f"Could not extract username from response: {response}")
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error getting username by user ID: {str(e)}")
+            logger.error(f"Error getting username by user ID '{user_id}': {str(e)}", exc_info=True)
         
         return None
     
