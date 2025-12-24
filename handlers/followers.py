@@ -65,7 +65,14 @@ async def followers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(message) > 4096:
             # Split into multiple messages safely
             chunks = safe_split_html_message(message, max_length=4096)
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                # Rate limiting: Add delay between Telegram message sends (except for first message)
+                if i > 0:
+                    delay = 0.5  # 0.5 seconds delay between Telegram messages
+                    logger.info(f"Rate limiting: Waiting {delay} seconds before sending next chunk to Telegram...")
+                    import time
+                    time.sleep(delay)
+                
                 try:
                     await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
                 except BadRequest as e:

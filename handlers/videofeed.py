@@ -168,6 +168,13 @@ async def videofeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             image_url = formatted_video.get("image_url")
             text = formatted_video.get("text", "")
             
+            # Rate limiting: Add delay between Telegram message sends (except for first message)
+            if i > 1:
+                delay = 0.5  # 0.5 seconds delay between Telegram messages
+                logger.info(f"Rate limiting: Waiting {delay} seconds before sending next video to Telegram...")
+                import time
+                time.sleep(delay)
+            
             # Clean and truncate caption (Telegram caption limit is 1024)
             if text:
                 caption_clean = clean_caption(text, max_length=900)

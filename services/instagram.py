@@ -84,7 +84,7 @@ class InstagramService:
             
             # Rate limiting: Add delay between API calls (except for first page)
             if page > 0:
-                delay = 2  # 2 seconds delay between pagination requests
+                delay = 3  # 3 seconds delay between pagination requests
                 logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
                 time.sleep(delay)
             
@@ -312,16 +312,33 @@ class InstagramService:
             
             # Extract user ID from response (structure may vary)
             if isinstance(response, dict):
-                # Try common response structures
-                user_id = response.get("user_id") or response.get("id") or response.get("pk")
+                # Try common response structures (check both lowercase and capitalized versions)
+                user_id = (
+                    response.get("user_id") or 
+                    response.get("UserID") or  # API returns "UserID" with capital letters
+                    response.get("user_id") or 
+                    response.get("id") or 
+                    response.get("Id") or
+                    response.get("ID") or
+                    response.get("pk")
+                )
                 if user_id:
+                    logger.info(f"Found user_id={user_id} from response keys: {list(response.keys())}")
                     return str(user_id)
                 # Check in data field
                 if "data" in response:
                     data = response["data"]
                     if isinstance(data, dict):
-                        user_id = data.get("user_id") or data.get("id") or data.get("pk")
+                        user_id = (
+                            data.get("user_id") or 
+                            data.get("UserID") or 
+                            data.get("id") or 
+                            data.get("Id") or
+                            data.get("ID") or
+                            data.get("pk")
+                        )
                         if user_id:
+                            logger.info(f"Found user_id={user_id} from data field")
                             return str(user_id)
                     elif isinstance(data, str):
                         # If data is directly the user ID
@@ -348,16 +365,28 @@ class InstagramService:
             
             # Extract username from response (structure may vary)
             if isinstance(response, dict):
-                # Try common response structures
-                username = response.get("username") or response.get("user_name")
+                # Try common response structures (check both lowercase and capitalized versions)
+                username = (
+                    response.get("username") or 
+                    response.get("UserName") or  # API returns "UserName" with capital letters
+                    response.get("user_name") or
+                    response.get("userName")
+                )
                 if username:
+                    logger.info(f"Found username={username} from response keys: {list(response.keys())}")
                     return str(username)
                 # Check in data field
                 if "data" in response:
                     data = response["data"]
                     if isinstance(data, dict):
-                        username = data.get("username") or data.get("user_name")
+                        username = (
+                            data.get("username") or 
+                            data.get("UserName") or 
+                            data.get("user_name") or
+                            data.get("userName")
+                        )
                         if username:
+                            logger.info(f"Found username={username} from data field")
                             return str(username)
                     elif isinstance(data, str):
                         # If data is directly the username
@@ -400,6 +429,11 @@ class InstagramService:
                 raise ValueError(f"Could not find username for user ID: {identifier_clean}")
             
             logger.info(f"Got username={username} from user_id={identifier_clean}")
+            # Rate limiting: Add delay before next API call
+            delay = 1.5  # 1.5 seconds delay between API calls
+            logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
+            time.sleep(delay)
+            
             # Step 2: Get user ID from username using user_id_by_username API
             user_id = self.get_user_id_by_username(username)
             if not user_id:
@@ -417,6 +451,11 @@ class InstagramService:
                 raise ValueError(f"Could not find user ID for username: {identifier_clean}")
             
             logger.info(f"Got user_id={user_id} from username={identifier_clean}")
+        
+        # Rate limiting: Add delay before profile API call
+        delay = 1.5  # 1.5 seconds delay before profile API
+        logger.info(f"Rate limiting: Waiting {delay} seconds before profile API call...")
+        time.sleep(delay)
         
         # Always use profile API with user_id (never use profile API with username directly)
         logger.info(f"Fetching profile info for user_id={user_id}")
@@ -669,7 +708,7 @@ class InstagramService:
             
             # Rate limiting: Add delay between API calls (except for first page)
             if page > 0:
-                delay = 2  # 2 seconds delay between pagination requests
+                delay = 3  # 3 seconds delay between pagination requests
                 logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
                 time.sleep(delay)
             
@@ -834,8 +873,8 @@ class InstagramService:
         logger.info(f"Getting user reels for user_id={user_id}, include_feed_video={include_feed_video}")
         try:
             # Rate limiting: Add delay before API call
-            delay = 1  # 1 second delay before reels API call
-            logger.info(f"Rate limiting: Waiting {delay} second before reels API call...")
+            delay = 2  # 2 seconds delay before reels API call
+            logger.info(f"Rate limiting: Waiting {delay} seconds before reels API call...")
             time.sleep(delay)
             
             response = self.client.get_reels(user_id, include_feed_video)

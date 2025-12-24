@@ -239,7 +239,7 @@ async def reels_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             
                             # Add small delay between sends to avoid rate limiting (only for multiple reels)
                             if total_reels > 1 and i < total_reels:
-                                await asyncio.sleep(1)  # 1 second delay between videos
+                                await asyncio.sleep(1.5)  # 1.5 seconds delay between videos
                                 
                         finally:
                             # Clean up downloaded file

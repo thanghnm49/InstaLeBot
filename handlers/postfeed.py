@@ -197,6 +197,13 @@ async def postfeed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             image_url = formatted_post.get("image_url")
             text = formatted_post.get("text", "")
             
+            # Rate limiting: Add delay between Telegram message sends (except for first message)
+            if i > 1:
+                delay = 0.5  # 0.5 seconds delay between Telegram messages
+                logger.info(f"Rate limiting: Waiting {delay} seconds before sending next post to Telegram...")
+                import time
+                time.sleep(delay)
+            
             # Log original text before cleaning
             logger.info(f"Post {i}: Original text length: {len(text) if text else 0}")
             if text:
