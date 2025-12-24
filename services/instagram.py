@@ -338,10 +338,12 @@ class InstagramService:
                     logger.info(f"Found pk in response: {user_id} (type: {type(user_id)})")
                 
                 logger.info(f"Extracted user_id from top-level keys: {user_id}")
-                if user_id is not None and user_id != "":
+                # Check if we found a valid user_id (not None and not empty string)
+                if user_id is not None and str(user_id).strip() != "":
                     logger.info(f"Found user_id={user_id} from response keys: {list(response.keys())}")
                     return str(user_id)
-                # Check in data field
+                
+                # Check in data field if not found at top level
                 if "data" in response:
                     data = response["data"]
                     logger.info(f"Checking data field: {data}")
@@ -354,13 +356,14 @@ class InstagramService:
                             data.get("ID") or
                             data.get("pk")
                         )
-                        if user_id:
+                        if user_id and str(user_id).strip() != "":
                             logger.info(f"Found user_id={user_id} from data field")
                             return str(user_id)
                     elif isinstance(data, str):
                         # If data is directly the user ID
-                        logger.info(f"Data is string, returning as user_id: {data}")
-                        return data
+                        if data.strip() != "":
+                            logger.info(f"Data is string, returning as user_id: {data}")
+                            return data
                 logger.error(f"Could not extract user_id from response: {response}")
         except Exception as e:
             logger.error(f"Error getting user ID by username '{username}': {str(e)}", exc_info=True)
