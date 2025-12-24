@@ -95,6 +95,10 @@ class RapidAPIClient:
         except:
             pass
         
+        # Add rate limiting delay before making the request
+        delay = 1.0  # 1 second delay before each API call
+        time.sleep(delay)
+        
         for attempt in range(retries):
             try:
                 response = self.session.get(url, params=params, timeout=30)

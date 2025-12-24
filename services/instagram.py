@@ -404,8 +404,8 @@ class InstagramService:
         Accepts either username or user ID.
         
         Flow:
-        - If numeric (user ID) → call username_by_id to get username → call user_id_by_username with that username → call profile?user_id
-        - If not numeric (username) → call user_id_by_username to get user ID → call profile?user_id
+        - If numeric (user ID) → directly call profile API with user_id
+        - If not numeric (username) → call user_id_by_username to get user ID → call profile API with user_id
         
         Args:
             identifier: Instagram username (with or without @) or user ID
@@ -420,27 +420,9 @@ class InstagramService:
         is_numeric = identifier_clean.isdigit()
         
         if is_numeric:
-            # It's a user ID (numeric)
-            logger.info(f"Identifier is numeric (user ID). Converting: user_id={identifier_clean} → username → user_id")
-            # Step 1: Get username from user ID using username_by_id API
-            username = self.get_username_by_user_id(identifier_clean)
-            if not username:
-                logger.error(f"Could not find username for user ID: {identifier_clean}")
-                raise ValueError(f"Could not find username for user ID: {identifier_clean}")
-            
-            logger.info(f"Got username={username} from user_id={identifier_clean}")
-            # Rate limiting: Add delay before next API call
-            delay = 1.5  # 1.5 seconds delay between API calls
-            logger.info(f"Rate limiting: Waiting {delay} seconds before next API call...")
-            time.sleep(delay)
-            
-            # Step 2: Get user ID from username using user_id_by_username API
-            user_id = self.get_user_id_by_username(username)
-            if not user_id:
-                logger.error(f"Could not find user ID for username: {username}")
-                raise ValueError(f"Could not find user ID for username: {username}")
-            
-            logger.info(f"Got user_id={user_id} from username={username}")
+            # It's a user ID (numeric) - use it directly
+            logger.info(f"Identifier is numeric (user ID). Using directly: user_id={identifier_clean}")
+            user_id = identifier_clean
         else:
             # It's a username (not numeric)
             logger.info(f"Identifier is username. Converting: username={identifier_clean} → user_id")
@@ -451,11 +433,11 @@ class InstagramService:
                 raise ValueError(f"Could not find user ID for username: {identifier_clean}")
             
             logger.info(f"Got user_id={user_id} from username={identifier_clean}")
-        
-        # Rate limiting: Add delay before profile API call
-        delay = 1.5  # 1.5 seconds delay before profile API
-        logger.info(f"Rate limiting: Waiting {delay} seconds before profile API call...")
-        time.sleep(delay)
+            
+            # Rate limiting: Add delay before profile API call
+            delay = 1.5  # 1.5 seconds delay before profile API
+            logger.info(f"Rate limiting: Waiting {delay} seconds before profile API call...")
+            time.sleep(delay)
         
         # Always use profile API with user_id (never use profile API with username directly)
         logger.info(f"Fetching profile info for user_id={user_id}")
