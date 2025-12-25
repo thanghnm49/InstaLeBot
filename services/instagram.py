@@ -311,41 +311,30 @@ class InstagramService:
             response = self.client.get_user_id_by_username(username)
             
             logger.info(f"API response for username '{username}': {response}")
-            logger.info(f"Response type: {type(response)}, Response keys: {list(response.keys()) if isinstance(response, dict) else 'N/A'}")
-            
-            # DIAGNOSTIC: Log raw response for debugging
-            logger.info(f"[DIAGNOSTIC] Raw response type: {type(response).__name__}")
-            logger.info(f"[DIAGNOSTIC] Raw response repr: {repr(response)}")
-            logger.info(f"[DIAGNOSTIC] Raw response str: {str(response)}")
             
             # Handle case where response might be a string (JSON string instead of dict)
             if isinstance(response, str):
-                logger.info(f"[DIAGNOSTIC] Response is string, attempting to parse as JSON")
                 try:
                     import json
                     response = json.loads(response)
-                    logger.info(f"[DIAGNOSTIC] Successfully parsed JSON string to dict: {response}")
                 except Exception as json_error:
-                    logger.error(f"[DIAGNOSTIC] Failed to parse response as JSON: {json_error}")
+                    logger.error(f"Failed to parse response as JSON: {json_error}")
                     return None
             
             # Extract user ID from response (structure may vary)
             if isinstance(response, dict):
-                logger.info(f"[DIAGNOSTIC] Response is dict, keys: {list(response.keys())}")
                 # Try common response structures (check both lowercase and capitalized versions)
                 # Note: Check UserID first since that's what the API returns
                 user_id = None
                 
                 # Check all possible key variations in order of likelihood
                 for key in ["UserID", "user_id", "id", "Id", "ID", "pk"]:
-                    logger.info(f"[DIAGNOSTIC] Checking key '{key}' in response: {key in response}")
                     if key in response:
                         user_id = response.get(key)
-                        logger.info(f"Found {key} in response: {user_id} (type: {type(user_id).__name__})")
+                        logger.info(f"Found {key} in response: {user_id}")
                         # Immediately return if we found a valid user_id
                         if user_id is not None:
                             user_id_str = str(user_id).strip()
-                            logger.info(f"[DIAGNOSTIC] user_id_str='{user_id_str}', len={len(user_id_str)}, bool={bool(user_id_str)}")
                             if user_id_str:
                                 logger.info(f"Returning user_id={user_id_str}")
                                 return user_id_str
@@ -368,21 +357,20 @@ class InstagramService:
                         return data
                 
                 logger.error(f"Could not extract user_id from response: {response}")
+            elif isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
+                # Handle case where response is a list with dict elements
+                response = response[0]
+                # Retry extraction with the dict
+                for key in ["UserID", "user_id", "id", "Id", "ID", "pk"]:
+                    if key in response:
+                        user_id = response.get(key)
+                        if user_id is not None:
+                            user_id_str = str(user_id).strip()
+                            if user_id_str:
+                                logger.info(f"Found user_id={user_id_str} from list element")
+                                return user_id_str
             else:
-                logger.error(f"[DIAGNOSTIC] Response is not dict! Type: {type(response).__name__}, Value: {response}")
-                # Try one more thing - check if it's a list with one dict element
-                if isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
-                    logger.info(f"[DIAGNOSTIC] Response is list with dict, extracting first element")
-                    response = response[0]
-                    # Retry extraction with the dict
-                    for key in ["UserID", "user_id", "id", "Id", "ID", "pk"]:
-                        if key in response:
-                            user_id = response.get(key)
-                            if user_id is not None:
-                                user_id_str = str(user_id).strip()
-                                if user_id_str:
-                                    logger.info(f"Found user_id={user_id_str} from list element")
-                                    return user_id_str
+                logger.error(f"Response is not dict or list! Type: {type(response).__name__}")
         except Exception as e:
             logger.error(f"Error getting user ID by username '{username}': {str(e)}", exc_info=True)
         
@@ -402,17 +390,14 @@ class InstagramService:
             response = self.client.get_username_by_user_id(user_id)
             
             logger.info(f"API response for user_id '{user_id}': {response}")
-            logger.info(f"Response type: {type(response)}, Response keys: {list(response.keys()) if isinstance(response, dict) else 'N/A'}")
             
             # Handle case where response might be a string (JSON string instead of dict)
             if isinstance(response, str):
-                logger.info(f"[DIAGNOSTIC] Response is string, attempting to parse as JSON")
                 try:
                     import json
                     response = json.loads(response)
-                    logger.info(f"[DIAGNOSTIC] Successfully parsed JSON string to dict: {response}")
                 except Exception as json_error:
-                    logger.error(f"[DIAGNOSTIC] Failed to parse response as JSON: {json_error}")
+                    logger.error(f"Failed to parse response as JSON: {json_error}")
                     return None
             
             # Extract username from response (structure may vary)
@@ -425,7 +410,7 @@ class InstagramService:
                 for key in ["UserName", "username", "user_name", "userName"]:
                     if key in response:
                         username = response.get(key)
-                        logger.info(f"Found {key} in response: {username} (type: {type(username)})")
+                        logger.info(f"Found {key} in response: {username}")
                         # Immediately return if we found a valid username
                         if username is not None:
                             username_str = str(username).strip()
@@ -451,21 +436,20 @@ class InstagramService:
                         return data
                 
                 logger.error(f"Could not extract username from response: {response}")
+            elif isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
+                # Handle case where response is a list with dict elements
+                response = response[0]
+                # Retry extraction with the dict
+                for key in ["UserName", "username", "user_name", "userName"]:
+                    if key in response:
+                        username = response.get(key)
+                        if username is not None:
+                            username_str = str(username).strip()
+                            if username_str:
+                                logger.info(f"Found username={username_str} from list element")
+                                return username_str
             else:
-                logger.error(f"[DIAGNOSTIC] Response is not dict! Type: {type(response).__name__}, Value: {response}")
-                # Try one more thing - check if it's a list with one dict element
-                if isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
-                    logger.info(f"[DIAGNOSTIC] Response is list with dict, extracting first element")
-                    response = response[0]
-                    # Retry extraction with the dict
-                    for key in ["UserName", "username", "user_name", "userName"]:
-                        if key in response:
-                            username = response.get(key)
-                            if username is not None:
-                                username_str = str(username).strip()
-                                if username_str:
-                                    logger.info(f"Found username={username_str} from list element")
-                                    return username_str
+                logger.error(f"Response is not dict or list! Type: {type(response).__name__}")
         except Exception as e:
             logger.error(f"Error getting username by user ID '{user_id}': {str(e)}", exc_info=True)
         

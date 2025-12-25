@@ -109,13 +109,13 @@ class RapidAPIClient:
                     response_data = response.json()
                     
                     # Handle case where response is a string (double-encoded JSON)
+                    # This can happen with some API responses
                     if isinstance(response_data, str):
-                        logger.info(f"[DIAGNOSTIC] Response is string, attempting to parse as JSON again")
                         try:
                             response_data = json.loads(response_data)
-                            logger.info(f"[DIAGNOSTIC] Successfully parsed double-encoded JSON")
+                            logger.info(f"Parsed double-encoded JSON response for {endpoint}")
                         except Exception as json_error:
-                            logger.warning(f"[DIAGNOSTIC] Failed to parse double-encoded JSON: {json_error}, keeping as string")
+                            logger.warning(f"Failed to parse double-encoded JSON for {endpoint}: {json_error}")
                     
                     # Log API response (truncate if too large)
                     response_str = json.dumps(response_data, ensure_ascii=False)
